@@ -1,28 +1,20 @@
-# 校园二手平台重新实施初始化
+# 校园二手交易与物品流转平台
 
-本包采用既有需求、两版实现加一版系统测试。当前只建立四人Skill和协作输入，没有开始业务实现或执行阶段验收。
+本轮沿用原需求重新实施：V1、V2两版实现，V3系统测试。A/B/C实现并自测，D贯穿每版独立验证；各版四名实际成员对同一基线确认通过后进入下一版。工程文档默认全组共同完成，测试及验收材料由D主责。
 
-## 给各自AI的入口
+开工前的文档已整理为一套评审稿。先从[工程文档入口](documents/README.md)阅读，再查看[架构讨论稿](documents/design/架构设计_讨论稿.md)、[阶段计划](documents/stages/阶段计划.md)及[18项任务](documents/stages/任务索引.md)。原需求原样保留；技术方案的评审记录与实施状态分开维护。
 
-| 成员 | 技术主责与过程责任 | Skill |
+| 成员 | 技术职责 | Skill |
 |---|---|---|
-| A | 前端基础与交易页面；基线、阶段组织 | [A](implementation/skills/campus-resale-a-frontend/SKILL.md) |
-| B | 交易后端、数据库与并发；架构、ADR、关键设计统合 | [B](implementation/skills/campus-resale-b-transaction/SKILL.md) |
-| C | 认证与平台治理及对应页面；Q业务澄清组织 | [C](implementation/skills/campus-resale-c-governance/SKILL.md) |
-| D | 沟通、通知、收藏评价及对应页面；验证组织与需求追踪 | [D](implementation/skills/campus-resale-d-community/SKILL.md) |
+| A | 前端公共工程、用户交易和社区页面、集成自测 | [A](implementation/skills/campus-resale-a-frontend/SKILL.md) |
+| B | 交易数据、迁移和事务并发；收藏、评价信誉、统计及通知后端 | [B](implementation/skills/campus-resale-b-transaction/SKILL.md) |
+| C | 身份会话、认证审核、治理争议、聊天后端与管理页面 | [C](implementation/skills/campus-resale-c-governance/SKILL.md) |
+| D | 每版独立测试、缺陷复验、测试文档和阶段验收材料 | [D](implementation/skills/campus-resale-d-verification/SKILL.md) |
 
-先让AI读自己的Skill及其公共必读文件。示例：
+项目文件直接放在implementation下；documents集中放需求、设计、阶段、测试及证据。[组织架构](documents/组织架构.md)列目录，[协作流程](documents/协作流程.md)说明main、v1/v2/v3与个人任务分支的合并方式。
 
-> 我负责A（替换为实际角色）。请读取implementation/skills下对应SKILL.md及其必读文件。先核对已有需求、当前阶段、我的范围与依赖，输出当前任务计划及需要找其他成员协商的问句。未提供明确实现任务时先准备任务，不自行开始写业务代码。
+初始化时把自己的Skill交给Agent，并说明：
 
-四个会话分别服务真实同学，不自动启动四个AI扮演同学。Skill保留项目相对路径，分发整个包，不单独拷走一个SKILL.md。不自动安装到个人全局Skill目录。
+> 我负责A（替换为自己的角色）。请读取本项目共同协作约定、对应Skill及工程文档入口。先核对当前版本和任务准入，给出与我相关的方案意见、依赖和需要协商的问句。文档供全组评审；进入实现时按已批准任务执行，并同步契约、自测和交接材料。
 
-## 目录
-
-- implementation/：实现工程；本轮只写skills，前后端代码由后续批准任务建立。
-- documents/：需求输入、设计、阶段和测试等工程文档。
-- [共同协作约定](implementation/skills/共同协作约定.md)：权限、角色、阶段门槛及文档流程。
-- [文档基线索引](documents/README.md)：原需求来源及各文档状态。
-- [阶段计划](documents/stages/阶段计划.md)、[阶段验收记录](documents/stages/阶段验收记录.md)。
-
-所有目录和非MD文件使用英文名；Markdown文件可中文。当前提交仅包含Skill及必要配套文档，不表示实现或验收完成。
+当前材料包含沿用的需求、开工前评审稿及四份Skill，后续业务代码直接在implementation内开发。实际运行说明由实现任务落实到implementation/README.md和启动脚本；GitHub各批实际操作仍须用户明确授权。
