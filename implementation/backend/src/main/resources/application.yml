@@ -1,0 +1,48 @@
+# V1 后端运行配置（B：交易/数据/迁移/通知）。
+# 实际地址、账号与密码通过环境变量或本机未入库的配置文件提供，不提交真实凭据。
+server:
+  port: ${SERVER_PORT:18080}
+  address: ${SERVER_ADDRESS:0.0.0.0}
+
+spring:
+  application:
+    name: campus-resale-backend
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3307/campus_resale_app?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&connectionTimeZone=UTC&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      pool-name: campus-pool
+      connection-timeout: 10000
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: always
+  servlet:
+    multipart:
+      max-file-size: ${UPLOAD_MAX_BYTES:5242880}
+      max-request-size: ${UPLOAD_MAX_BYTES:5242880}
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    jdbc-type-for-null: NULL
+
+campus:
+  migration:
+    enabled: ${MIGRATION_ENABLED:true}
+  upload:
+    dir: ${UPLOAD_DIR:./var/uploads}
+    max-bytes: ${UPLOAD_MAX_BYTES:5242880}
+    max-pixels: 16000000
+  notification:
+    batch-size: ${NOTIFICATION_BATCH_SIZE:50}
+    # 退避秒数：失败后下次可重试的间隔，V2 再补按时段/次数的完整策略
+    retry-delay-seconds: ${RETRY_INTERVAL_SECONDS:30}
+
+logging:
+  level:
+    root: INFO
+    com.campus: INFO

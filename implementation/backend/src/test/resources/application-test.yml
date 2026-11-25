@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3307/campus_resale_selftest?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&connectionTimeZone=UTC&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    serialization:
+      write-dates-as-timestamps: false
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    jdbc-type-for-null: NULL
+
+campus:
+  migration:
+    enabled: true
+  upload:
+    dir: ${UPLOAD_DIR:./target/test-uploads}
+    max-bytes: 5242880
+    max-pixels: 16000000
+  notification:
+    batch-size: 50
+    # 自测允许立即补投；真实环境由环境记录登记实际间隔
+    retry-delay-seconds: 0
+
+logging:
+  level:
+    root: WARN
+    com.campus: WARN
