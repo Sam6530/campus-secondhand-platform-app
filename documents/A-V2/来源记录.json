@@ -1,0 +1,222 @@
+{
+  "date": "2026-11-26",
+  "source_repository": "https://github.com/WildLMao/campus-secondhand-platform-app",
+  "source_branch_at_lookup": "v2",
+  "source_commit": "f206e97a26af84b4ec4c7d90bd93d38a1088b707",
+  "source_frontend": "reference-app/frontend",
+  "local_source_archive": "D:\\aaaahomework\\aaa3_1\\软件工程\\软件工程项目实现-张霖组-校园二手交易与物品流转平台(1)\\2 完整项目文件.zip",
+  "local_source_archive_sha256": "bd3602f0c0bceda8d8540645f53db466c8304583d67a7934316ffac27f125915",
+  "target_repository": "https://github.com/Sam6530/campus-secondhand-platform-app",
+  "work_branch": "v2-a",
+  "pr_base": "v2",
+  "verification": {
+    "source_files": 18,
+    "git_blob_matches": 18,
+    "missing": [],
+    "extra": [],
+    "content_changes_from_source_commit": 0,
+    "application_tests_run_this_round": false,
+    "integration_or_stage_acceptance_claimed": false,
+    "method": "逐文件计算Git blob SHA-1并与固定提交的完整Git tree比较，同时记录SHA-256；8个本地压缩包文件仅还原工作区行尾，输出18个文件均与Git原始blob字节一致。"
+  },
+  "files": [
+    {
+      "old_path": "reference-app/frontend/index.html",
+      "package_path": "implementation/frontend/index.html",
+      "receiving_path": "implementation/frontend/index.html",
+      "git_blob_sha1": "5694f95633997ce13f87976c49b64019175e6c34",
+      "sha256": "2adeaf5a66f2a2f60546f5ae5d3ce414af314e79c28f0c72ee3aa7d0eb088dd9",
+      "bytes": 383,
+      "local_archive_handling": "还原工作区CRLF为Git中LF"
+    },
+    {
+      "old_path": "reference-app/frontend/package-lock.json",
+      "package_path": "implementation/frontend/package-lock.json",
+      "receiving_path": "implementation/frontend/package-lock.json",
+      "git_blob_sha1": "fd938698664bed854d724e2e8a92c3ffca6a2651",
+      "sha256": "273a72a5a68709211881745e408ab1fdf256a7a867600ae3d0866649f8f8d6fd",
+      "bytes": 40236,
+      "local_archive_handling": "还原工作区CRLF为Git中LF"
+    },
+    {
+      "old_path": "reference-app/frontend/package.json",
+      "package_path": "implementation/frontend/package.json",
+      "receiving_path": "implementation/frontend/package.json",
+      "git_blob_sha1": "346a591a35d53fa63ac55e0ce701669890873a24",
+      "sha256": "283ef85873891b43adb63c8990f9289936c73a5ed685a5794275d510433c46cd",
+      "bytes": 279,
+      "local_archive_handling": "还原工作区CRLF为Git中LF"
+    },
+    {
+      "old_path": "reference-app/frontend/public/favicon.svg",
+      "package_path": "implementation/frontend/public/favicon.svg",
+      "receiving_path": "implementation/frontend/public/favicon.svg",
+      "git_blob_sha1": "66e7e4383a1a24847601634733d7eac45891fcfc",
+      "sha256": "709c25a948601cee4f924e078ed69af24eb22010ee832e418d47e5ce8a9dde74",
+      "bytes": 323,
+      "local_archive_handling": "还原工作区CRLF为Git中LF"
+    },
+    {
+      "old_path": "reference-app/frontend/src/App.vue",
+      "package_path": "implementation/frontend/src/App.vue",
+      "receiving_path": "implementation/frontend/src/App.vue",
+      "git_blob_sha1": "ff694a1d1ba302990faac3424c88b5f4a4b58ca1",
+      "sha256": "2befe78d13b351450c0b28ed9add7aaff72020dc24fe763e92a8624405813394",
+      "bytes": 52184,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/src/api.js",
+      "package_path": "implementation/frontend/src/api.js",
+      "receiving_path": "implementation/frontend/src/api.js",
+      "git_blob_sha1": "e923d5facb747b84993c23b57e4a5d658f61d7f7",
+      "sha256": "f3ad31b94de36538174e02bb089bb33aded3dd3823f367f5707c8d2c90402afc",
+      "bytes": 1405,
+      "local_archive_handling": "还原工作区CRLF为Git中LF"
+    },
+    {
+      "old_path": "reference-app/frontend/src/evidence.js",
+      "package_path": "implementation/frontend/src/evidence.js",
+      "receiving_path": "implementation/frontend/src/evidence.js",
+      "git_blob_sha1": "2e65939d8f1a9a911f3c2bd3101f1c8c6da616b2",
+      "sha256": "b7314e6cfb327bc276ea2d61ffea2c359b0c1adc42d9e1fc3ce9a217a8bd9fc0",
+      "bytes": 2643,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/src/iam.js",
+      "package_path": "implementation/frontend/src/iam.js",
+      "receiving_path": "implementation/frontend/src/iam.js",
+      "git_blob_sha1": "c3a7f6edde5a5f409ec0b5cd3c24bf5c193268c7",
+      "sha256": "30887908722922499d900ea540c662ed899ad2a8bf20fd36337690ab412248d7",
+      "bytes": 1789,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/src/identity.js",
+      "package_path": "implementation/frontend/src/identity.js",
+      "receiving_path": "implementation/frontend/src/identity.js",
+      "git_blob_sha1": "edaae90219c45bc3d1bc754e3c442beb3c27515e",
+      "sha256": "e3b1fe406345d5a17c10d21b2e10eff58ca0a7611f21f8aa469436fbd4c44ca9",
+      "bytes": 1350,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/src/intent.js",
+      "package_path": "implementation/frontend/src/intent.js",
+      "receiving_path": "implementation/frontend/src/intent.js",
+      "git_blob_sha1": "2b8d283b73f0b9207d0c6b859d52cd1640b33124",
+      "sha256": "2bb2681af8355090f7068f51c139d3ef556d27ff48a732ea705c3d6781808757",
+      "bytes": 4780,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/src/main.js",
+      "package_path": "implementation/frontend/src/main.js",
+      "receiving_path": "implementation/frontend/src/main.js",
+      "git_blob_sha1": "a584648c95fd45ee3d6f6236563be1a667f6265c",
+      "sha256": "4f28b634f509f112d7c3fa22fd11a5611bd9b47ebc0553b770a468d09952bfd6",
+      "bytes": 114,
+      "local_archive_handling": "还原工作区CRLF为Git中LF"
+    },
+    {
+      "old_path": "reference-app/frontend/src/orders.js",
+      "package_path": "implementation/frontend/src/orders.js",
+      "receiving_path": "implementation/frontend/src/orders.js",
+      "git_blob_sha1": "e86e3a2eee3b77380b8f5caea1429e5700528e27",
+      "sha256": "7b19a57ca20c9d254d3c2982fe91b794fb9795195fa1a68fa9cb585513c1cf2b",
+      "bytes": 3555,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/src/session.js",
+      "package_path": "implementation/frontend/src/session.js",
+      "receiving_path": "implementation/frontend/src/session.js",
+      "git_blob_sha1": "44c5ee9d51f7f43da70cc59b794a31356ff97de1",
+      "sha256": "dcd8f3224aa7cc9c234a338f04e48c68968476551b2aedd49112747acf37cdbf",
+      "bytes": 3279,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/src/stats.js",
+      "package_path": "implementation/frontend/src/stats.js",
+      "receiving_path": "implementation/frontend/src/stats.js",
+      "git_blob_sha1": "66d325f23e352d26114deca26443ba04a3a4e33e",
+      "sha256": "4c9cb625f9c7ccc0ff83526261353e766e5972b2cdd855d1bac81083640cee0c",
+      "bytes": 1753,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/src/style.css",
+      "package_path": "implementation/frontend/src/style.css",
+      "receiving_path": "implementation/frontend/src/style.css",
+      "git_blob_sha1": "850e3141afbf8dc0b209fc09d07dcaa1c570059d",
+      "sha256": "e5b68b1ec52c4d9efbd3166bdea818059b3d4bb7caa20aae40c61e2e5918d46a",
+      "bytes": 7159,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/test/behavior.test.mjs",
+      "package_path": "implementation/frontend/test/behavior.test.mjs",
+      "receiving_path": "implementation/frontend/test/behavior.test.mjs",
+      "git_blob_sha1": "c7b2d5a4be77771351795fbbf224ac9a381a8741",
+      "sha256": "cfccc681722fd7f4748ae472baf3c948261695989088c7e82822fb9bcb50d85f",
+      "bytes": 27501,
+      "local_archive_handling": "还原工作区CRLF为Git中LF"
+    },
+    {
+      "old_path": "reference-app/frontend/test/static-check.mjs",
+      "package_path": "implementation/frontend/test/static-check.mjs",
+      "receiving_path": "implementation/frontend/test/static-check.mjs",
+      "git_blob_sha1": "1266649d11c80d85d3600bee0163c3c39dc461ae",
+      "sha256": "3fa531ea0e61aba6904c58669bb041c48cadec472eb079e8cc66807dda4ffd0c",
+      "bytes": 4565,
+      "local_archive_handling": "原字节一致"
+    },
+    {
+      "old_path": "reference-app/frontend/vite.config.js",
+      "package_path": "implementation/frontend/vite.config.js",
+      "receiving_path": "implementation/frontend/vite.config.js",
+      "git_blob_sha1": "0b83c5a6c6902cd740d53b6bc301f97c44fd5b18",
+      "sha256": "81df11c3547571586edb278d3f04cd80ff6281ae5d5a99cc537142b37ccb7aee",
+      "bytes": 220,
+      "local_archive_handling": "还原工作区CRLF为Git中LF"
+    }
+  ],
+  "v1_preservation": {
+    "branch": "v2",
+    "commit": "be5f73ea2fd15e9beae7e9d7672eafa651675c17",
+    "preservation": "V1和集成修复保留在此Git快照及既有分支历史；本次不向旧前端混入V1改动。"
+  },
+  "v1_only_paths_not_in_current_frontend": [
+    "implementation/frontend/.env.example",
+    "implementation/frontend/.gitkeep",
+    "implementation/frontend/README.md",
+    "implementation/frontend/pnpm-lock.yaml",
+    "implementation/frontend/pnpm-workspace.yaml",
+    "implementation/frontend/serve.mjs",
+    "implementation/frontend/src/components/ItemEditor.vue",
+    "implementation/frontend/src/components/Market.vue",
+    "implementation/frontend/src/components/Modal.vue",
+    "implementation/frontend/src/components/Orders.vue",
+    "implementation/frontend/src/integration/ManagementPage.vue",
+    "implementation/frontend/src/integration/management.js",
+    "implementation/frontend/src/lib/client.js",
+    "implementation/frontend/src/lib/rules.js",
+    "implementation/frontend/tests/browser.cjs",
+    "implementation/frontend/tests/client.test.js",
+    "implementation/frontend/tests/integration-fixes.cjs",
+    "implementation/frontend/tests/integration-fixes.test.js"
+  ],
+  "task_input_checksums": [
+    {
+      "input": "共同任务说明",
+      "sha256": "280e4867c128b7c15f2ae3b7285ad165afdd298918188726c57d43196863bd9c"
+    },
+    {
+      "input": "A任务说明",
+      "sha256": "2d11ac051b4875a266af803545263f40e044f159b5a367b2f49536648c18b3f8"
+    }
+  ],
+  "this_revision": "本次修订功能说明、文件命名及PR表述；18个前端文件与上次提交内容一致。"
+}

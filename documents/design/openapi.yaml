@@ -789,6 +789,7 @@ paths:
                       type: string
                     peer_id:
                       type: string
+                      description: ITEM咨询人公开引用（买方侧为本人，卖方侧为咨询人）；ORDER由订单确定双方，可回传或留空，不作为授权依据。
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/notifications:
