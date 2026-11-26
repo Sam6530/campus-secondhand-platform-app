@@ -1,21 +1,20 @@
 openapi: 3.0.3
 info:
   title: 校园循环 · 后端接口契约
-  version: 0.2.0-draft-2026-11-24
-  x-review-status: proposal
-  x-proposed-idempotency-policy: required-for-item-and-order-writes
-  x-source-commit: f206e97a26af84b4ec4c7d90bd93d38a1088b707
+  version: 2.0.1-2026-11-26
+  x-base-commit: f64115dc950cc29238073195e3a51a5767686803
+  x-document-status: implementation-aligned
   description: |
-    本轮候选schema已将发布/编辑意图键设为必填，并将公开seller_id定义为不透明公开引用；相对旧版的升级需全组评审并同步调用方。
-    本轮候选，基于旧接口整理，待Q-RB-02/04双方确认；不表示本轮接口已实现或接受。
     校园二手交易与物品流转平台后端接口。所有业务接口位于 /api。
-    身份基于服务端 Session；所有非 GET 请求须带 X-CSRF-Token（由 GET /api/me、注册或登录响应下发）。
+    身份基于服务端 Session；POST、PUT、DELETE等写请求须带 X-CSRF-Token（由 GET /api/me、注册或登录响应下发）。
     POST /api/orders 与 POST /api/orders/{id}/{action} 还须带 Idempotency-Key；
-    POST /api/items 与 PUT /api/items/{id} 同样须带 Idempotency-Key；同一提交意图只成立一次。
+    POST /api/items 与 PUT /api/items/{id} 可选带 Idempotency-Key，带标识时同一提交意图只成立一次。
     错误统一为 {"message": "..."}：400 输入或业务条件不满足、401 未登录、403 越权或 CSRF 失败、
     404 不存在、409 冲突或并发锁冲突、500 未预期异常、503 数据库不可用。
-    时间均为 UTC ISO-8601（Z 结尾），金额为人民币元且保留两位小数。
-    详细说明、冲突和待确认参数见同目录《接口与关键设计.md》及原需求。
+    生成时间为UTC ISO-8601（Z结尾）；统计参数可带时区偏移。金额响应为JSON数字，人民币元，零汇总可为0。
+    当前V2接口形态见同目录《接口与关键设计.md》；已发现的实现问题单独记录，不作为允许违反业务规则的依据。
+    账号相关id沿用accounts.id，不使用独立public_ref；服务端仍须按会话与对象归属授权。
+    文本去除首尾空白后按Java String.length计数，即UTF-16代码单元；x-max-utf16-code-units记录实际限制。
 servers:
   - url: /
 security:
@@ -80,6 +79,7 @@ paths:
                 nickname:
                   type: string
                   maxLength: 30
+                  x-max-utf16-code-units: 30
       responses:
         '200':
           description: 注册并建立会话
@@ -146,7 +146,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/items:
     get:
-      security: []
       summary: 检索公开可交易物品
       parameters:
         - name: q
@@ -154,6 +153,7 @@ paths:
           schema:
             type: string
             maxLength: 120
+            x-max-utf16-code-units: 120
         - name: category
           in: query
           schema:
@@ -167,10 +167,10 @@ paths:
       responses:
         '200':
           description: |
-            每页 20 条。按字段列出的公开投影：id, seller_id, seller_name, seller_verified, title, category, description,
+            每页 20 条。按字段列出的公开投影：id, seller_id, seller_name, title, category, description,
             price, image_id, version, status, created_at；不返回 reason（管理员审核说明）及 hidden、
             relist_allowed 等治理内部字段。BR14：title、description 与 seller_name 返回前按
-            公开内容脱敏规则处理（与公开评价同一规则），历史已存内容同样处理；库中原文不改写，
+            ImageGuard.mask 脱敏（与公开评价同一规则），历史已存内容同样处理；库中原文不改写，
             价格/ID 不处理，正常型号（如 iPhone13）不受影响。本人 /api/items/mine 与管理台保持原文。
           content:
             application/json:
@@ -180,10 +180,10 @@ paths:
                   $ref: '#/components/schemas/PublicItem'
     post:
       summary: 发布物品（进入待审）
-      description: 本轮候选必须携带 Idempotency-Key；同一操作者、同一标识、相同内容的重复提交（含响应丢失后的重试）返回原物品，不重复创建；同一标识改变内容返回 400。不同标识仍是新发布。
+      description: 可选带 Idempotency-Key；同一操作者、同一标识、相同内容的重复提交（含响应丢失后的重试）返回原物品，不重复创建；同一标识改变内容返回 400。不同标识仍是新发布。
       parameters:
         - $ref: '#/components/parameters/Csrf'
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
         required: true
         content:
@@ -220,17 +220,17 @@ paths:
   /api/items/{id}:
     put:
       summary: 修改本人可修改物品（版本 +1 并重新审核）
-      description: 本轮候选必须携带 Idempotency-Key；同一操作者、同一标识、相同内容的重复提交返回原版本，不再次递增版本；同一标识改变内容返回 400。
+      description: 可选带 Idempotency-Key；同一操作者、同一标识、相同内容的重复提交返回原版本，不再次递增版本；同一标识改变内容返回 400。
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/Csrf'
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ItemUpdateInput'
+              $ref: '#/components/schemas/ItemInput'
       responses:
         '200':
           description: 更新后的物品或同一标识的重放结果（原版本）
@@ -292,9 +292,11 @@ paths:
                 student_no:
                   type: string
                   maxLength: 50
+                  x-max-utf16-code-units: 50
                 real_name:
                   type: string
                   maxLength: 50
+                  x-max-utf16-code-units: 50
                 asset_id:
                   type: string
                   description: 本人上传的 VERIFY 类型图片
@@ -391,20 +393,28 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/sellers/{id}/reviews:
     get:
+      summary: 卖方已公开评价数组
+      description: |
+        返回当前卖方收到的、未隐藏的买方评价，不返回PublicSeller包装或信誉汇总。
+        公开响应仅含id、score、content、created_at、nickname，不返回私有订单或账号关联编号。
       security: []
-      summary: 卖方公开资料、信誉汇总与评价
-      description: id为不透明公开卖方引用；返回公开白名单，不含内部账户ID、登录名、学号、联系方式或私有订单。与旧数组响应相比，本轮候选升级为资料及评价对象，须Q-RB-02/04确认。
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
-          description: 公开评价
+          description: 无评价时为空数组
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PublicSeller'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicReview'
+        '401':
+          description: 当前实现对不存在的账户返回401；存在性错误语义以实际代码为准
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/orders:
     get:
       summary: 本人作为买方或卖方的订单
@@ -483,6 +493,7 @@ paths:
                 reason:
                   type: string
                   maxLength: 1000
+                  x-max-utf16-code-units: 1000
                 declared:
                   type: boolean
                   description: 交付、收货或未交付的事实声明
@@ -554,6 +565,7 @@ paths:
                 content:
                   type: string
                   maxLength: 1000
+                  x-max-utf16-code-units: 1000
       responses:
         '200':
           description: 已评价
@@ -598,9 +610,11 @@ paths:
                 reason:
                   type: string
                   maxLength: 1500
+                  x-max-utf16-code-units: 1500
                 evidence:
                   type: string
                   maxLength: 5000
+                  x-max-utf16-code-units: 5000
       responses:
         '200':
           description: 已受理，订单保留原阶段与占用
@@ -629,6 +643,7 @@ paths:
                 evidence:
                   type: string
                   maxLength: 1500
+                  x-max-utf16-code-units: 1500
       responses:
         '200':
           description: 已追加证据
@@ -674,9 +689,11 @@ paths:
                 reason:
                   type: string
                   maxLength: 1500
+                  x-max-utf16-code-units: 1500
                 evidence:
                   type: string
                   maxLength: 5000
+                  x-max-utf16-code-units: 5000
       responses:
         '200':
           description: 已登记举报回执
@@ -759,6 +776,7 @@ paths:
                 content:
                   type: string
                   maxLength: 1500
+                  x-max-utf16-code-units: 1500
       responses:
         '200':
           description: 已发送
@@ -768,6 +786,53 @@ paths:
                 $ref: '#/components/schemas/Ok'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/messages/context:
+    get:
+      summary: 查询会话消息与服务端只读状态
+      description: 与GET /api/messages采用相同参与者授权；readOnly不是授权凭据，发送接口仍独立检查。
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [ITEM, ORDER]
+        - name: object
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: peer
+          in: query
+          description: ITEM咨询人账号id，规则同/messages；ORDER忽略
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 消息列表与只读标记
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages, readOnly, context_type, context_id]
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  readOnly:
+                    type: boolean
+                  context_type:
+                    type: string
+                    enum: [ITEM, ORDER]
+                  context_id:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
   /api/inbox:
@@ -789,7 +854,7 @@ paths:
                       type: string
                     peer_id:
                       type: string
-                      description: ITEM咨询人公开引用（买方侧为本人，卖方侧为咨询人）；ORDER由订单确定双方，可回传或留空，不作为授权依据。
+                      description: 当前V2账号id（accounts.id）；标识不替代对象授权
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/notifications:
@@ -889,6 +954,9 @@ paths:
   /api/admin/stats:
     get:
       summary: 业务统计（BR18 口径）
+      description: |
+        from和to可各自省略；有值时解析为Instant，按完成时间[from,to)筛选。
+        有效双侧区间应满足from<to；反向或相等区间返回400，单侧参数可省略。
       parameters:
         - name: from
           in: query
@@ -916,7 +984,10 @@ paths:
   /api/admin/{kind}/{id}:
     post:
       summary: 治理操作
-      description: kind对应字段及正常/拒绝/重复语义见同目录《接口与关键设计.md》第13节；统一必填reason（≤1500字），verification/item还须version和pass，hide/review须hidden，restrict须restricted，dispute须outcome及对应依据。
+      description: |
+        kind及字段见《接口与关键设计.md》的管理动作表。统一必填reason，去空白后最多1500个UTF-16代码单元。
+        物品审核需当前version；认证审核按申请id定位，不接收version作为审核条件。
+        V6迁移将认证及物品审核原因列扩容到1500，合法输入完整保存；通知可使用摘要。
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: kind
@@ -937,6 +1008,7 @@ paths:
                 reason:
                   type: string
                   maxLength: 1500
+                  x-max-utf16-code-units: 1500
                 pass:
                   type: boolean
                 version:
@@ -953,6 +1025,7 @@ paths:
                 event_ref:
                   type: string
                   maxLength: 100
+                  x-max-utf16-code-units: 100
       responses:
         '200':
           description: 已执行并留痕
@@ -1003,8 +1076,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/assets/{id}:
     get:
-      security: []
-      description: 公开物品图片无需登录；认证材料、未公开物品及私有证据仍须Session与对象授权；匿名标记不授予读取所有资源的权限。
       summary: 读取图片
       parameters:
         - $ref: '#/components/parameters/Id'
@@ -1042,14 +1113,22 @@ components:
       name: X-CSRF-Token
       in: header
       required: true
-      description: 由 GET /api/me、注册或登录响应下发的 csrf；所有非 GET 请求必填
+      description: 由 GET /api/me、注册或登录响应下发的 csrf；POST、PUT、DELETE等写请求必填
       schema:
         type: string
     IdempotencyKey:
       name: Idempotency-Key
       in: header
       required: true
-      description: '[A-Za-z0-9_-]{8,100}；同一操作者同一标识只成立一次业务结果；同内容重放返回原物品、版本或订单结果，同键异内容400拒绝'
+      description: '[A-Za-z0-9_-]{8,100}；同一操作者同一标识只成立一次业务结果，重放返回原订单'
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9_-]{8,100}$'
+    IdempotencyKeyOptional:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: '[A-Za-z0-9_-]{8,100}；带标识时同一操作者同一标识只产生一次业务效果：相同内容返回原物品/原版本，不同内容返回 400；不带标识按新提交处理'
       schema:
         type: string
         pattern: '^[A-Za-z0-9_-]{8,100}$'
@@ -1131,7 +1210,6 @@ components:
       enum: [教材书籍, 数码配件, 宿舍生活, 运动户外, 其他]
     PublicUser:
       type: object
-      description: 旧命名保留；仅用于当前会话本人响应，不是匿名公开卖方DTO，不能用于公开列表
       properties:
         id:
           type: string
@@ -1152,16 +1230,13 @@ components:
       type: object
       description: |
         GET /api/items 的公开投影：仅展示字段，不含审核说明 reason 与 hidden/relist_allowed 等治理字段。
-        title、description、seller_name 返回前按公开内容脱敏规则处理（BR14），联系方式替换为 [联系方式已隐藏]。
+        title、description、seller_name 返回前按 ImageGuard.mask 脱敏（BR14），联系方式替换为 [联系方式已隐藏]。
       properties:
         id:
           type: string
         seller_id:
           type: string
-          description: 不透明公开卖方引用，与内部账户主键/登录名/学号区分；公开页面以此关联卖方资料，不据此授予私有查询权
-        seller_verified:
-          type: boolean
-          description: 当前有效校园认证标记，不返回材料
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         seller_name:
           type: string
           description: 卖方公开昵称，按公开规则脱敏
@@ -1193,7 +1268,7 @@ components:
           type: string
         seller_id:
           type: string
-          description: 不透明公开卖方引用，与内部账户主键/登录名/学号区分；公开页面以此关联卖方资料，不据此授予私有查询权
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         seller_name:
           type: string
           description: 仅公开列表与管理台返回
@@ -1232,11 +1307,13 @@ components:
         title:
           type: string
           maxLength: 120
+          x-max-utf16-code-units: 120
         category:
           $ref: '#/components/schemas/Category'
         description:
           type: string
           maxLength: 5000
+          x-max-utf16-code-units: 5000
         price:
           type: string
           description: 正数，最多两位小数，最大 9999999999.99
@@ -1244,63 +1321,6 @@ components:
         image_id:
           type: string
           description: 本人上传的 ITEM 类型图片
-    ItemUpdateInput:
-      allOf:
-        - $ref: '#/components/schemas/ItemInput'
-        - type: object
-          required: [version]
-          properties:
-            version:
-              type: integer
-              minimum: 1
-              description: 修改前看到的版本；版本不匹配400拒绝，不覆盖较新内容
-    PublicSeller:
-      type: object
-      required: [seller_ref, nickname, verified, reputation, reviews]
-      properties:
-        seller_ref:
-          type: string
-          description: 不透明公开引用，不使用账户主键、登录名或学号
-        nickname:
-          type: string
-          description: 按公开规则脱敏
-        verified:
-          type: boolean
-          description: 当前有效校园认证标记，不下发材料和真实身份
-        reputation:
-          type: object
-          required: [average_score, published_review_count, completed_trade_count]
-          properties:
-            average_score:
-              type: number
-              nullable: true
-              description: 该卖方作为卖方收到的未隐藏买方评价算术平均；无评价为null，不虚构满分
-            published_review_count:
-              type: integer
-              minimum: 0
-              description: 上述未隐藏买方评价数量，双方评价分别保留，不混入卖方给买方的评分
-            completed_trade_count:
-              type: integer
-              minimum: 0
-              description: 该卖方作为卖方、由买方本人确认完成的订单去重数；不含拒绝、取消、异常终止
-        reviews:
-          type: array
-          items:
-            type: object
-            required: [score, content, created_at, nickname]
-            properties:
-              score:
-                type: integer
-                minimum: 1
-                maximum: 5
-              content:
-                type: string
-                description: 按公开规则脱敏，不含联系方式和私有订单信息
-              created_at:
-                $ref: '#/components/schemas/Time'
-              nickname:
-                type: string
-                description: 评价人公开昵称，不含内部ID
     Order:
       type: object
       description: 订单快照与当前阶段；快照不随后续物品修改回写
@@ -1311,9 +1331,10 @@ components:
           type: string
         buyer_id:
           type: string
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         seller_id:
           type: string
-          description: 不透明公开卖方引用，与内部账户主键/登录名/学号区分；公开页面以此关联卖方资料，不据此授予私有查询权
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         title:
           type: string
         description:
@@ -1369,6 +1390,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Review'
+    PublicReview:
+      type: object
+      description: 卖方公开评价，不含私有订单及账号关联
+      required: [id, score, content, created_at, nickname]
+      properties:
+        id:
+          type: string
+        score:
+          type: integer
+          minimum: 1
+          maximum: 5
+        content:
+          type: string
+          description: 按公开规则脱敏
+        created_at:
+          $ref: '#/components/schemas/Time'
+        nickname:
+          type: string
+          description: 按公开规则脱敏
     Review:
       type: object
       properties:
@@ -1378,8 +1418,10 @@ components:
           type: string
         author_id:
           type: string
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         target_id:
           type: string
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         score:
           type: integer
           minimum: 1
@@ -1400,6 +1442,7 @@ components:
           type: string
         author_id:
           type: string
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         reason:
           type: string
         evidence:
@@ -1428,6 +1471,7 @@ components:
           type: string
         author_id:
           type: string
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         content:
           type: string
         created_at:
@@ -1439,6 +1483,7 @@ components:
           type: string
         author_id:
           type: string
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         object_type:
           type: string
           enum: [ITEM, ORDER, ACCOUNT]
@@ -1486,6 +1531,7 @@ components:
           type: string
         user_id:
           type: string
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         content:
           type: string
         created_at:
@@ -1504,7 +1550,7 @@ components:
           type: boolean
         title:
           type: string
-          description: 仅 unavailable=false 时返回；按公开内容脱敏规则处理（与公开物品同一规则，库中原文不改写）
+          description: 仅 unavailable=false 时返回；按 ImageGuard.mask 脱敏（与公开物品同一规则，库中原文不改写）
         price:
           $ref: '#/components/schemas/Money'
         status:
@@ -1525,14 +1571,11 @@ components:
     Verification:
       type: object
       properties:
-        version:
-          type: integer
-          minimum: 1
-          description: 当前材料版本；审核必须携带所见版本，旧版本不能通过新材料
         id:
           type: string
         user_id:
           type: string
+          description: 当前V2账号id（accounts.id）；标识不替代对象授权
         student_no:
           type: string
         real_name:

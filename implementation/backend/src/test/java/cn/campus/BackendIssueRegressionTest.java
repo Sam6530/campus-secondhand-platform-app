@@ -195,10 +195,10 @@ class BackendIssueRegressionTest {
 
     @Test
     @Order(1)
-    void migrationsV3ToV5AppliedWithRevisionColumns() {
+    void migrationsV3ToV6AppliedWithRevisionColumns() {
         var versions = db.list("select version as v from schema_migrations order by version", p()).stream()
                 .map(r -> n(r, "v")).toList();
-        assertEquals(List.of(1, 2, 3, 4, 5), versions);
+        assertEquals(List.of(1, 2, 3, 4, 5, 6), versions);
         // 版本列存在（空表聚合也为 0 行，故用 H2 元数据确认列）
         assertTrue(jdbc.queryForObject("select count(*) from information_schema.columns where lower(table_name) in ('disputes','deliveries') and lower(column_name)='revision'",
                 Integer.class) == 2, "争议与交付登记应有版本列");
@@ -796,7 +796,7 @@ class BackendIssueRegressionTest {
         var publicReviews = om.readTree(mvc.perform(get("/api/sellers/" + seller() + "/reviews"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         assertTrue(publicReviews.size() >= 1);
-        assertEquals(buyer(), publicReviews.get(0).get("author_id").asText());
+        publicReviews.forEach(row -> { assertFalse(row.has("author_id")); assertFalse(row.has("order_id")); });
     }
 
     @Test
@@ -1516,5 +1516,53 @@ class BackendIssueRegressionTest {
         assertEquals(0L, ((Number) jdbc.queryForMap("select count(*) as c from notifications n where not exists "
                 + "(select 1 from notification_outbox o where o.id=n.id)").get("c")).longValue(),
                 "notifications 只由已投递的待投递记录写入");
+    }
+
+    @Test
+    void statisticsRejectsReversedAndEmptyIntervals() {
+        for (String end : List.of("2026-01-01T00:00:00Z", "2026-12-01T00:00:00Z")) {
+            ApiError error = assertThrows(ApiError.class,
+                    () -> service.statistics(admin(), "2026-12-01T00:00:00Z", end));
+            assertEquals(400, error.status);
+        }
+        assertNotNull(service.statistics(admin(), "", "2027-01-01T00:00:00Z"));
+    }
+
+    @Test
+    void publicReviewsDoNotExposePrivateAssociations() {
+        var item = onSale();
+        var order = order(item);
+        act(seller(), order, "accept");
+        act(seller(), order, "deliver");
+        act(buyer(), order, "confirm");
+        service.review(buyer(), s(order, "id"), p("score", 5, "content", "公开字段回归"));
+        var rows = service.reviews(seller());
+        assertTrue(rows.stream().anyMatch(row -> "公开字段回归".equals(row.get("content"))));
+        for (var row : rows) {
+            assertFalse(row.containsKey("order_id"));
+            assertFalse(row.containsKey("author_id"));
+            assertFalse(row.containsKey("target_id"));
+        }
+        assertEquals(order.get("id"), service.orderReviews(buyer(), s(order, "id")).get(0).get("order_id"));
+    }
+
+    @Test
+    void reviewReasonsRetainAcceptedLengthForBothObjects() {
+        String reason = "核".repeat(1500);
+        var item = pendingItem();
+        service.manage(admin(), "item", s(item, "id"), p("reason", reason, "pass", false, "version", item.get("version")));
+        assertEquals(reason, service.item(s(item, "id"), false).get("reason"));
+        String user = s(service.register(p("username", "reason_" + id().substring(0, 8), "password", "TestPass123!", "nickname", "合成审核用户")), "id");
+        String asset = id();
+        db.exec("insert into assets(id,owner_id,kind,media_type,created_at) values(#{p.id},#{p.u},'VERIFY','image/png',#{p.t})",
+                p("id", asset, "u", user, "t", now()));
+        service.verify(user, p("student_no", "TEST_" + id(), "real_name", "合成用户", "asset_id", asset));
+        String verification = s(service.verifications(user).get(0), "id");
+        service.manage(admin(), "verification", verification, p("reason", reason, "pass", false));
+        assertEquals(reason, service.verifications(user).get(0).get("reason"));
+        var pending = pendingItem();
+        assertThrows(ApiError.class, () -> service.manage(admin(), "item", s(pending, "id"),
+                p("reason", reason + "核", "pass", false, "version", pending.get("version"))));
+        assertEquals("待审", service.item(s(pending, "id"), false).get("status"));
     }
 }

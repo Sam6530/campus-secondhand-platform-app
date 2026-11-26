@@ -13,7 +13,7 @@
 | `backend/src/main/java/cn/campus/`中C的六个文件 | AdminBootstrap、AdminController、AuthController、CommunityController、SeedData、SessionSupport保持原样 | C |
 | `frontend/` | V2前端：Vue 3、Vite与JavaScript页面 | A |
 | `build.ps1` | 构建后端并校验`target/campus-resale-backend.jar`；找不到Maven时明确报错 | B |
-| `run-local.ps1`、`start.cmd`、`stop.cmd` | 读取`implementation/.env.local`，启动后端jar与前端`serve.mjs`；需已构建前端`dist` | A/B |
+| `run-local.ps1`、`start.cmd`、`stop.cmd` | 读取仓库根目录`.env.local`，启动后端jar与前端`serve.mjs`；需已构建前端`dist` | A/B |
 | `Dockerfile`、`compose.yml`、`.env.example`、`.dockerignore` | 容器构建与服务编排配套 | B |
 | `documents/A-V2/`、`documents/B-V2/` | 前端与后端的文件清单、来源记录及V3事项 | A/B |
 
@@ -55,7 +55,7 @@ curl.exe http://127.0.0.1:18080/api/items
 
 空库首次启动需提供`BOOTSTRAP_ADMIN_USERNAME`与`BOOTSTRAP_ADMIN_PASSWORD`，或在仅限本地的演示环境设置`DEMO_SEED=true`。数据库首次启动自动建表；常规启动不删库、不覆盖账号与图片。配置项与容器说明见 [backend/README.md](backend/README.md) 与 [.env.example](.env.example)。
 
-`run-local.ps1`同时启动前后端，需要`implementation/.env.local`、已构建的前端`dist/index.html`与`frontend/serve.mjs`；当前前端入口文件的核对事项见 [A-V2的V3差异记录](../documents/A-V2/V3差异记录.md)。
+`run-local.ps1`同时启动前后端，需要仓库根目录`.env.local`、已构建的前端`dist/index.html`与`frontend/serve.mjs`；当前前端入口文件的核对事项见 [A-V2的V3差异记录](../documents/A-V2/V3差异记录.md)。
 
 ## 4 自测
 
@@ -101,3 +101,7 @@ powershell -ExecutionPolicy Bypass -File implementation\build.ps1
 | 前端页面构建、API代理与启动入口 | A | 构建产物需与后端静态资源或代理方式统一 |
 | 联调机地址、账号与一键启停 | 全组 | 依赖环境登记与实际授权 |
 
+
+## 本地启动补充
+
+复制仓库根目录.env.local.example为.env.local并填写数据库及初始管理员；容器使用implementation/.env，二者用途不同。先在implementation/frontend运行npm ci及npm run build，再运行implementation/build.ps1，最后双击implementation/start.cmd。前端serve.mjs由Node运行，静态资源来自dist，/api同源代理到后端。

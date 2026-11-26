@@ -60,7 +60,7 @@ function safe(fn){
    if(epoch!==gen)return;
    if(op.auth){
     let me=null;try{me=await api('/me');}catch(err){}
-    if(staleFor(actor,me?.user)||epoch!==gen)return;
+    if(epoch!==gen||!sameAccount(actor,user.value))return;
     setCsrf(me?.csrf||'');
     if(!me?.user){applyUser(null);return say('登录已失效，请重新登录。',true);}
     applyUser(me.user);
@@ -75,13 +75,35 @@ function safe(fn){
 let searchVersion=0;
 async function market(){const version=++searchVersion;const who=user.value?.id||null;const rows=await api(`/items?q=${encodeURIComponent(ui2.query)}&category=${encodeURIComponent(ui2.category)}&page=${ui2.page}`);if(version!==searchVersion||(user.value?.id||null)!==who)return;items.value=rows;}
 async function refresh(actor=user.value){
- if(!actor)return;
- const me=await api('/me');setCsrf(me.csrf);if(accountChanged(actor,me.user)||!me.user){applyUser(me.user);return;}
+ if(!actor||!sameAccount(actor,user.value))return;
+ const gen=epoch;
+ const me=await api('/me');if(gen!==epoch||!sameAccount(actor,user.value))return;setCsrf(me.csrf);if(accountChanged(actor,me.user)||!me.user){applyUser(me.user);return;}
  applyUser(me.user);
  const [m,o,f,v,d,r,n,i]=await Promise.all(['/items/mine','/orders','/favorites','/verifications','/disputes','/reports','/notifications','/inbox'].map(p=>api(p)));
- if(!sameAccount(actor,user.value))return;
+ if(gen!==epoch||!sameAccount(actor,user.value))return;
+ // Recheck identity after parallel reads so an in-flight batch cannot restore old-permission data.
+ const current=await api('/me');
+ if(gen!==epoch||!sameAccount(actor,user.value))return;
+ setCsrf(current.csrf);
+ if(accountChanged(actor,current.user)||!current.user){applyUser(current.user);return;}
+ applyUser(current.user);
  mine.value=m;orders.value=o;favorites.value=f;verifications.value=v;disputes.value=d;reports.value=r;notifications.value=n;inbox.value=i;
  if(isAdmin.value)await loadAdmin(actor);
+}
+// Once a write has succeeded, a later query failure must not turn it into a failed write.
+async function refreshAfterWrite(actor,message){
+ const gen=epoch;
+ try{await refresh(actor);}
+ catch(error){
+  if(gen!==epoch||!sameAccount(actor,user.value))return false;
+  if(error.status===401||error.status===403){
+   try{const me=await api('/me');if(gen!==epoch||!sameAccount(actor,user.value))return false;setCsrf(me.csrf);applyUser(me.user);}catch{}
+  }
+  if(gen===epoch&&sameAccount(actor,user.value))say(message+' 页面刷新失败：'+error.message,true);
+  return false;
+ }
+ if(gen!==epoch||!sameAccount(actor,user.value))return false;
+ say(message);return true;
 }
 function statsParams(){const q=statsQuery(dateFilter.from,dateFilter.to);const parts=[];if(q.from)parts.push('from='+encodeURIComponent(q.from));if(q.to)parts.push('to='+encodeURIComponent(q.to));return {query:parts.length?'?'+parts.join('&'):'',errors:q.errors,ok:q.ok};}
 async function loadAdmin(actor=user.value){
@@ -125,10 +147,9 @@ async function submitDialog(){
   const result=await current.submit({...fields},actor);
   // 验证未通过（false）/请求异常（在 safe 内抛出前到此为止）：保留弹窗与输入，不显示成功。
   if(result===false)return;
-  if(dialog.value!==current)return;
+  if(dialog.value!==current||gen!==epoch||!sameAccount(actor,user.value))return;
   dialog.value=null;
-  if(result!==undefined&&result!==null)say(typeof result==='string'?result:'操作已保存。');
-  await refresh(actor);
+  await refreshAfterWrite(actor,typeof result==='string'&&result?result:'操作已保存。');
  };
  const run=safe(submit);
  if(!run)return;
@@ -167,7 +188,6 @@ function orderAction(o,action){
   if(!out.result||gen!==epoch||!sameAccount(actor,user.value))return '订单已提交，请以订单列表结果为准。';
   const result=out.result;
   orders.value=orders.value.map(x=>x.id===result.id?{...x,...result}:x);
-  await refreshOrders(actor);
   return '订单状态已更新。';
  },action==='deliver'?'登记交付后仍须买方本人确认，才计入成交。':'操作会按当前订单阶段和本人权限进行检查。');
 }
@@ -184,7 +204,6 @@ function buy(item){
   // 未确认作为新操作：不发送、不导航、不显示成功，保留弹窗与勾选。
   if(out.cancelled)return false;
   if(!sameAccount(actor,user.value))return '下单请求已完成，请以订单列表结果为准。';
-  await refresh(actor);
   if(sameAccount(actor,user.value)){ui.tab='orders';}
   return '下单请求已完成，请以订单列表结果为准。';
  },'下单会预占这件物品。款项由双方线下结算，平台不收款。');
@@ -208,18 +227,17 @@ async function publish(){
   // 未确认作为新操作：不清空表单、不跳转、不显示成功。
   if(out.cancelled)return say('未提交：本次内容与上次未决的提交不同，已取消。',true);
   Object.assign(itemForm,{id:'',title:'',category:'教材书籍',description:'',price:'',image_id:''});
-  await refresh(actor);if(!sameAccount(actor,user.value))return;
-  ui.tab='mine';say('物品已提交，当前版本审核通过后才会公开展示。');
+  if(await refreshAfterWrite(actor,'物品已提交，当前版本审核通过后才会公开展示。'))ui.tab='mine';
  });
 }
-async function verify(){await safe(async()=>{await api('/verifications','POST',verifyForm);Object.assign(verifyForm,{student_no:'',real_name:'',asset_id:''});await refresh();say('校园认证已提交，请等待管理员审核。');});}
+async function verify(){await safe(async(actor)=>{await api('/verifications','POST',verifyForm);if(!sameAccount(actor,user.value))return;Object.assign(verifyForm,{student_no:'',real_name:'',asset_id:''});await refreshAfterWrite(actor,'校园认证已提交，请等待管理员审核。');});}
 // 以下 open() 回调都在 submitDialog 的唯一 safe 内执行：只发请求并返回结果，内部不再进 safe。
 function withdraw(item){open('撤下物品',[{key:'confirm',type:'check',label:'确认撤下，保留历史记录',required:true}],async b=>{if(!b.confirm)return false;await api('/items/'+item.id+'/withdraw','POST',{});return '物品已撤下。';});}
 function isFavorite(id){return favorites.value.some(i=>i.id===id);}
 // 收藏请求表达用户想要达到的目标状态，而不是“切换”。
 async function favorite(item,on){if(!user.value)return openLogin();
  const target=on===undefined?!isFavorite(item.id):!!on;
- await safe(async()=>{await setFavorite(item.id,target);await refresh();say(target?'已加入收藏。':'已取消收藏。');});}
+ await safe(async(actor)=>{await setFavorite(item.id,target);await refreshAfterWrite(actor,target?'已加入收藏。':'已取消收藏。');});}
 function isOwn(item){return !!user.value&&item?.seller_id===user.value.id;}
 function reportObject(type,id){if(!user.value)return openLogin();open('提交举报',[{key:'reason',label:'举报事实与理由',type:'textarea',required:true,max:1500},{key:'evidence',label:'证据说明',type:'textarea',max:1500}],async b=>{await api('/reports','POST',{...b,object_type:type,object_id:id});return true;},'同事件可关联核查；每条举报保留独立回执，举报数量不直接判定违规。');}
 function startDispute(o){open('申请履约争议处理',[{key:'reason',label:'履约分歧或已交付未登记情况',type:'textarea',required:true,max:1500},{key:'evidence',label:'相关证据、时间和情况',type:'textarea',max:1500}],async b=>{await api('/orders/'+o.id+'/disputes','POST',b);return true;},'受理后保留订单原阶段和占用，暂停接单、拒单、登记和普通取消。已登记时买方仍可确认收到。');}
@@ -258,7 +276,6 @@ function review(o){
   if(!sameAccount(actor,user.value))return '';
   const rec={author_id:actor.id,score:Number(b.score),content:b.content,created_at:new Date().toISOString(),hidden:0};
   reviewed[o.id]=actor.id;const cur=orderData[o.id];if(cur)cur.reviews=addReview(cur.reviews,rec);
-  await refresh(actor);
   return '评价已提交，感谢你的反馈。';
  },'完成订单双方各可评价一次。');
 }
@@ -305,8 +322,7 @@ function manage(kind,obj,extra={},title='管理处置'){
   const actor=user.value;
   await api(`/admin/${kind}/${obj}`,'POST',body);
   if(!sameAccount(actor,user.value))return '处置已记录，请以管理台结果为准。';
-  management.value=await api('/admin/dashboard');await refresh(actor);
-  return '处置已记录，相关通知与结果已刷新。';
+  return '处置已记录。';
  }, '审批或核查结论会记录到操作日志。');
 }
 // #6 管理台：从争议 order_id / 订单类举报 object_id 只读打开治理订单详情（无代收货、代评价）。
@@ -338,7 +354,7 @@ onUnmounted(()=>clearInterval(poll));
   <section v-if="ui.tab==='mine'"><div class="intro"><div><h1>我的发布</h1><p class="muted">每次关键修改都生成新版本，重新审核。</p></div><button class="primary" @click="newItem">＋ 发布闲置</button></div><div class="grid"><article class="card" v-for="i in mine.value" :key="i.id"><div class="row"><span class="tag">{{ i.status }}{{ i.hidden?' · 已隐藏':'' }}</span><span class="muted">版本 {{ i.version }}</span></div><h2>{{ i.title }}</h2><p class="price">¥ {{ money(i.price) }}</p><p>{{ i.reason||'暂无审核意见' }}</p><div class="actions"><button v-if="['在售','待审','审核退回','已撤下','交易异常终止'].includes(i.status)" @click="editItem(i)">修改 / 重新提交</button><button v-if="['在售','待审','审核退回'].includes(i.status)" @click="withdraw(i)">撤下</button></div></article></div><div class="empty" v-if="!mine.value.length">还没有发布物品，试着发布第一件闲置吧。</div></section>
   <section v-if="ui.tab==='publish'"><div class="intro"><div><h1>{{ itemForm.id?'修改并重新审核':'发布一件闲置' }}</h1><p class="muted">单件实物、正数价格，审核通过后公开。有效订单期间不能修改。</p></div></div><form class="card form" @submit.prevent="publish"><label>物品名称<input v-model="itemForm.title" required maxlength="120"></label><div class="form-grid"><label>分类<select v-model="itemForm.category"><option v-for="c in categories" :key="c">{{ c }}</option></select></label><label>价格 / 元<input type="number" min="0.01" max="9999999999.99" step="0.01" v-model="itemForm.price" required></label></div><label>物品描述<textarea v-model="itemForm.description" rows="5" required maxlength="5000" placeholder="成色、使用情况、瑕疵等，请如实说明。不要填写公开联系方式。"></textarea></label><label>物品图片（JPEG / PNG，最大 5MB）<input type="file" accept="image/png,image/jpeg" @change="upload($event,'ITEM',itemForm,'image_id')"></label><img class="preview" v-if="itemForm.image_id" :src="'/api/assets/'+itemForm.image_id" alt="物品图片预览"><div class="actions"><button class="primary" :disabled="ui.busy||!itemForm.image_id">提交审核</button><button type="button" @click="navigate('mine')">返回</button></div></form></section>
 
-  <section v-if="ui.tab==='orders'"><div class="intro"><div><h1>我的订单</h1><p class="muted">订单保留成立时的物品与价格快照。交付登记不等于成交。</p></div><span class="tag">进行中 {{ active.length }} · 已完成 {{ done.length }}</span></div><article class="card" v-for="o in orders.value" :key="o.id"><div class="row"><span class="tag">{{ o.stage }}{{ o.disputed?' · 争议处理中':'' }}</span><span class="muted small">{{ date(o.created_at) }} · {{ short(o.id) }}</span></div><h2>{{ o.title }}</h2><p class="description">{{ orderFor(o).description }}</p><div class="row"><span class="price">¥ {{ money(o.price) }}</span><span class="muted">买方 {{ orderFor(o).buyer_name }} ／ 卖方 {{ orderFor(o).seller_name }}</span></div><div class="steps"><span v-for="stage in ['待卖方确认','待交付','待买方确认','已完成']" :key="stage" :class="{current:o.stage===stage}">{{ stage }}</span></div><p v-if="o.reason" class="muted">操作原因：{{ o.reason }}</p><div class="actions"><button class="primary" :disabled="ui.busy" v-for="key in actionsFor(o,user.value)" :key="key" @click="orderAction(o,key)">{{ TITLES[key] }}</button><button @click="openChat('ORDER',o.id,'',o.title)">{{ ['已完成','已取消','已拒绝','已异常终止'].includes(o.stage)?'查看历史沟通':'订单沟通' }}</button><button v-if="['待卖方确认','待交付','待买方确认'].includes(o.stage)&&!o.disputed" @click="startDispute(o)">申请争议处理</button><button @click="openDetails(o)">查看详情</button><button v-if="o.stage==='已完成'&&!hasReviewed(o)" @click="review(o)">评价交易</button><span v-else-if="o.stage==='已完成'" class="tag">本人已评价</span><button @click="reportObject('ORDER',o.id)">举报反馈</button></div>
+  <section v-if="ui.tab==='orders'"><div class="intro"><div><h1>我的订单</h1><p class="muted">订单保留成立时的物品与价格快照。交付登记不等于成交。</p></div><span class="tag">进行中 {{ active.length }} · 已完成 {{ done.length }}</span></div><article class="card" v-for="o in orders.value" :key="o.id"><div class="row"><span class="tag">{{ o.stage }}{{ o.disputed?' · 争议处理中':'' }}</span><span class="muted small">{{ date(o.created_at) }} · {{ short(o.id) }}</span></div><h2>{{ o.title }}</h2><p class="description">{{ orderFor(o).description }}</p><div class="row"><span class="price">¥ {{ money(o.price) }}</span><span class="muted">买方 {{ orderFor(o).buyer_name }} ／ 卖方 {{ orderFor(o).seller_name }}</span></div><div class="steps"><span v-for="stage in ['待卖方确认','待交付','待买方确认','已完成']" :key="stage" :class="{current:o.stage===stage}">{{ stage }}</span></div><p v-if="o.reason" class="muted">操作原因：{{ o.reason }}</p><div class="actions"><button class="primary" :disabled="ui.busy" v-for="key in actionsFor(o,user.value)" :key="key" @click="orderAction(o,key)">{{ TITLES[key] }}</button><button :disabled="ui.busy" @click="openChat('ORDER',o.id,'',o.title)">{{ ['已完成','已取消','已拒绝','已异常终止'].includes(o.stage)?'查看历史沟通':'订单沟通' }}</button><button v-if="['待卖方确认','待交付','待买方确认'].includes(o.stage)&&!o.disputed" @click="startDispute(o)">申请争议处理</button><button :disabled="ui.busy" @click="openDetails(o)">查看详情</button><button v-if="o.stage==='已完成'&&!hasReviewed(o)" @click="review(o)">评价交易</button><span v-else-if="o.stage==='已完成'" class="tag">本人已评价</span><button @click="reportObject('ORDER',o.id)">举报反馈</button></div>
    <div v-if="orderData[o.id]" class="detail"><h2>订单依据与评价</h2><p class="muted small">交付登记</p><div v-if="orderData[o.id].delivery"><p>登记人：{{ orderData[o.id].delivery.actor_id===orderFor(o).seller_id?orderFor(o).seller_name:orderData[o.id].delivery.actor_id===orderFor(o).buyer_id?orderFor(o).buyer_name:'交易方' }} · 登记时间 {{ date(orderData[o.id].delivery.created_at) }}</p><pre class="evidence">{{ orderData[o.id].delivery.note||'（未填写说明）' }}</pre></div><p v-else class="muted">{{ o.stage==='已完成'?'未返回交付登记明细。':'尚未登记交付。' }}</p><p class="muted small">本单评价（双方各一次）</p><article class="log" v-for="r in myReviews(o)" :key="r.id"><strong>{{ r.authorName }} → {{ r.targetName }} · {{ r.score }} 分<span v-if="r.author_id===user.value?.id" class="tag">我的评价</span><span v-if="r.hidden" class="tag">已被治理隐藏</span></strong><p>{{ r.content }}</p><small>{{ date(r.created_at) }}</small></article><p v-if="!orderData[o.id].reviews.length" class="muted">双方还没有评价。</p><button v-if="o.stage==='已完成'&&!hasReviewed(o)&&mayReview(o)" class="primary" @click="review(o)">评价交易</button></div>
   </article><div class="empty" v-if="!orders.value.length">还没有订单，去发现物品逛逛吧。</div><h2 v-if="disputes.value.length">我的履约争议</h2><article class="card" v-for="d in disputes.value" :key="d.id"><div class="row"><strong>订单 {{ short(d.order_id) }}</strong><span class="tag">{{ d.status }}</span></div><p>{{ d.reason }}</p><h3 class='evidence-title'>原始证据</h3><pre v-if="evidenceFor(d,disputeOrder(d)).hasOriginal" class="evidence">{{ evidenceFor(d,disputeOrder(d)).original }}</pre><p v-else class='muted'>申请时未填写证据说明。</p><h3 class='evidence-title'>补充证据（{{ evidenceFor(d,disputeOrder(d)).count }} 条）</h3><ol v-if="evidenceFor(d,disputeOrder(d)).count" class='evidence-list'><li v-for="e in evidenceFor(d,disputeOrder(d)).supplements" :key="e.id||e.index"><div class="row"><strong>{{ e.author }}<span v-if="e.isMine" class="tag">我</span></strong><small class="muted">{{ date(e.created_at) }}</small></div><pre class="evidence">{{ e.content }}</pre></li></ol><p v-else class='muted'>尚无补充证据。</p><p v-if="d.decision">{{ d.outcome }}：{{ d.decision }}</p><button v-if="d.status==='处理中'" @click="supplement(d)">补充证据</button></article></section>
   <section v-if="ui.tab==='messages'"><div class="intro"><div><h1>消息与通知</h1><p class="muted">咨询与订单沟通分别保存，终态订单会话只读。</p></div><button :disabled="ui.busy" @click="safe(()=>refresh())">刷新通知</button></div><div class="grid"><div><h2>会话</h2><article class="card row" v-for="c in inbox.value" :key="c.context_type+c.context_id+c.peer_id"><span>{{ c.context_type==='ORDER'?'订单沟通':'物品咨询' }} · {{ short(c.context_id) }}</span><button @click="openChat(c.context_type,c.context_id,c.peer_id)">打开</button></article><div class="empty" v-if="!inbox.value.length">暂无会话，可从物品或订单发起沟通。</div></div><div><h2>站内通知</h2><article class="card" v-for="n in notifications.value" :key="n.id"><p>{{ n.content }}</p><small class="muted">{{ date(n.created_at) }}</small></article><div class="empty" v-if="!notifications.value.length">暂无通知。</div></div></div></section>

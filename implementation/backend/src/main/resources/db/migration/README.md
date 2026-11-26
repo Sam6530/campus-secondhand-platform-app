@@ -31,3 +31,5 @@
 
 执行结果可用 `GET /api/health` 的 `schema` 字段或 `select * from schema_migrations` 查看。
 MySQL 环境准备、空库初始化与验证步骤见 [`implementation/backend/README.md`](../../../../../README.md)。
+
+V6__review_reason_capacity.sql将认证及物品审核原因扩容至1500。保留V1—V5原始校验和，现有V5数据库可直接升级，不清业务数据。

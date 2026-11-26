@@ -1,0 +1,50 @@
+[
+  {
+    "name": "匿名登录框输入保留",
+    "result": "PASS",
+    "detail": "跨5秒后登录框及账号输入保留",
+    "errors": []
+  },
+  {
+    "name": "真实订单详情与终态聊天",
+    "result": "PASS",
+    "detail": "真实登录、订单交付说明、本人评价和终态只读页面可用",
+    "errors": []
+  },
+  {
+    "name": "管理员真实队列与统计",
+    "result": "PASS",
+    "detail": "7个队列入口可切换，统计及管理物品实际渲染",
+    "errors": []
+  },
+  {
+    "name": "退出后登录框无旧密码",
+    "result": "PASS",
+    "detail": "退出后账号密码输入为空",
+    "errors": []
+  },
+  {
+    "name": "HTTP200非法JSON必须拒绝",
+    "result": "PASS",
+    "detail": "应抛出解析错误；实际={\"resolved\":false,\"message\":\"服务器响应格式异常，请查询操作结果后再重试。\"}",
+    "errors": []
+  },
+  {
+    "name": "同账号权限变化清理判定",
+    "result": "PASS",
+    "detail": "restricted从0变1应触发身份代次更新；实际accountChanged=false",
+    "errors": []
+  },
+  {
+    "name": "发布成功后查询失败提示",
+    "result": "PASS",
+    "detail": "数据库已新增=1；表单标题=\"\"；反馈=物品已提交，当前版本审核通过后才会公开展示。 页面刷新失败：TEST_REFRESH_FAILED\n刷新",
+    "errors": []
+  },
+  {
+    "name": "权限变化期间旧响应不回填",
+    "result": "PASS",
+    "detail": "迟到批次完成后重新核对权限，草稿清理并退出私有发布页",
+    "errors": []
+  }
+]

@@ -1,0 +1,119 @@
+[
+  {
+    "name": "身份认证与MySQL初始化",
+    "result": "PASS",
+    "detail": "独立空库初始化、注册、图片上传及管理员认证完成"
+  },
+  {
+    "name": "CSRF拒绝未携带令牌的写入",
+    "result": "PASS",
+    "detail": "403且未执行收藏"
+  },
+  {
+    "name": "匿名及普通用户管理越权",
+    "result": "PASS",
+    "detail": "拒绝私有订单及管理台访问"
+  },
+  {
+    "name": "认证图片访问隔离",
+    "result": "PASS",
+    "detail": "其他用户不能读取认证图片"
+  },
+  {
+    "name": "发布幂等重试",
+    "result": "PASS",
+    "detail": "同键同内容只创建一件物品"
+  },
+  {
+    "name": "收藏幂等与不可见保护",
+    "result": "PASS",
+    "detail": "重复加入/取消幂等；隐藏后仅返回占位"
+  },
+  {
+    "name": "订单及评价第三人隔离",
+    "result": "PASS",
+    "detail": "第三人不能读取订单详情及评价"
+  },
+  {
+    "name": "交付登记详情",
+    "result": "PASS",
+    "detail": "当事人可查询真实交付说明"
+  },
+  {
+    "name": "完成订单释放占用与物品状态",
+    "result": "PASS",
+    "detail": "已完成/已成交/零占用"
+  },
+  {
+    "name": "双方评价与防重复",
+    "result": "PASS",
+    "detail": "双方各一条；重复被拒绝"
+  },
+  {
+    "name": "结束订单聊天只读",
+    "result": "PASS",
+    "detail": "只读标记及服务端拒绝发送"
+  },
+  {
+    "name": "公开评价数组契约",
+    "result": "PASS",
+    "detail": "现行接口返回评价数组"
+  },
+  {
+    "name": "公开评价最少字段",
+    "result": "PASS",
+    "detail": "公开评价中不应含order_id和author_id；实际字段=['score', 'nickname', 'created_at', 'id', 'content']"
+  },
+  {
+    "name": "隐藏评价保留本人记录",
+    "result": "PASS",
+    "detail": "隐藏不删除当事人记录"
+  },
+  {
+    "name": "成交统计区间与金额",
+    "result": "PASS",
+    "detail": "下界包含，上界排除，金额25元"
+  },
+  {
+    "name": "统计反向区间拒绝",
+    "result": "PASS",
+    "detail": "反向区间应返回400"
+  },
+  {
+    "name": "账号标识统一",
+    "result": "PASS",
+    "detail": "本人账号与交易标识一致"
+  },
+  {
+    "name": "第三人不能补证",
+    "result": "PASS",
+    "detail": "第三人403"
+  },
+  {
+    "name": "争议终止与长原因",
+    "result": "PASS",
+    "detail": "1500字原因完整；状态/占用/证据/双人通知一致；结案后补证拒绝"
+  },
+  {
+    "name": "审核理由UTF16边界",
+    "result": "PASS",
+    "detail": {
+      "ok": true
+    }
+  },
+  {
+    "name": "治理条件相互独立",
+    "result": "PASS",
+    "detail": "解除账号限制不清除隐藏标记"
+  },
+  {
+    "name": "举报个人回执隔离",
+    "result": "PASS",
+    "detail": "分别保留各自处理状态"
+  },
+  {
+    "name": "真实MySQL通知故障与恢复",
+    "result": "PASS",
+    "detail": "通知故障未回滚交易；恢复后补投，无未发记录"
+  }
+]

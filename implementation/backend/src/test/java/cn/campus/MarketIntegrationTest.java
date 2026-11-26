@@ -102,15 +102,15 @@ class MarketIntegrationTest {
     }
 
     @Test
-    void oversizeAdminReasonIsClippedToColumnWidth() {
+    void acceptedAdminReasonIsStoredWithoutTruncation() {
         var approved = fresh();
         var edited = service.saveItem(seller(), s(approved, "id"), p("title", "待重新审核物品", "category", "教材书籍",
-                "description", "用于验证管理员说明按列宽截断", "price", "25.00", "image_id", approved.get("image_id")));
+                "description", "用于验证管理员说明完整保存", "price", "25.00", "image_id", approved.get("image_id")));
         service.manage(admin(), "item", s(approved, "id"),
                 p("reason", "退回说明".repeat(300), "pass", false, "version", edited.get("version")));
         var item = service.item(s(approved, "id"), false);
         assertEquals("审核退回", s(item, "status"));
-        assertEquals(1000, s(item, "reason").length(), "说明应按 items.reason 列宽截断而不报错");
+        assertEquals("退回说明".repeat(300), s(item, "reason"), "合法说明应完整保存而不截断");
     }
 
     @Test

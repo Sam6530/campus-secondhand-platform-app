@@ -10,6 +10,7 @@ import { enterAction, composing, composeAction } from '../src/iam.js';
 import { orderDetails, reviewRows, canReview, alreadyReviewed, addReview, actionsFor, showConfirmReceived, governanceOrderId } from '../src/orders.js';
 import { itemError, itemBody, priceError } from '../src/identity.js';
 import { emptyPrivate, accountChanged, staleFor, verifyAction, favoriteView } from '../src/session.js';
+import { api } from '../src/api.js';
 import { statsQuery } from '../src/stats.js';
 import { evidenceLog, authorLabel, evidenceView } from '../src/evidence.js';
 
@@ -453,6 +454,22 @@ await test('我的订单与管理台争议卡都渲染 evidence_log（补证人+
   const admin = src.slice(at, src.indexOf('</template>', at));
   assert.ok(admin.includes('d.evidence_log') && admin.includes('userLabel(e.author_id)') && admin.includes('{{ date(e.created_at) }}'), '管理台显示补证作者与时间');
   assert.ok(admin.includes('d.evidence') && admin.includes('原始证据'), '管理台原始证据仍单独可见');
+});
+
+
+await test('权限变化失效，昵称更新及匿名刷新不误清', () => {
+  const current={id:'u',role:'USER',verified:1,restricted:0};
+  for(const next of [{...current,role:'ADMIN'},{...current,verified:0},{...current,restricted:1}]) assert.ok(accountChanged(current,next));
+  assert.ok(!accountChanged(current,{...current,nickname:'新昵称'}));
+  assert.ok(!accountChanged(null,undefined));
+});
+
+await test('非法JSON成功响应保持结果未知，不释放意图键', async () => {
+  const previous=globalThis.fetch;
+  try {
+    globalThis.fetch=async()=>({ok:true,status:200,json:async()=>{throw new SyntaxError('invalid JSON')}});
+    await assert.rejects(api('/items','POST',{}),error=>error.protocol===true && !error.status);
+  } finally {globalThis.fetch=previous;}
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

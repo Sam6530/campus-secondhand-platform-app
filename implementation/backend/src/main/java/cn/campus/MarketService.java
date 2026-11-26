@@ -583,14 +583,15 @@ public class MarketService {
 
     /**
      * 卖方公开评价：读取时再次脱敏联系方式（含历史记录），治理隐藏的评价不返回；
-     * 返回 author_id 便于前端区分本人评价。
+     * 公开投影不返回订单或账号关联编号；当事人另从本人订单查询。
      */
     public List<Map<String, Object>> reviews(String seller) {
         account(seller);
         return db.list(
-                "select r.id,r.order_id,r.author_id,r.score,r.content,r.created_at,a.nickname from reviews r join accounts a on a.id=r.author_id join orders o on o.id=r.order_id where r.target_id=#{p.u} and o.seller_id=#{p.u} and r.hidden=0 order by r.created_at desc",
+                "select r.id,r.score,r.content,r.created_at,a.nickname from reviews r join accounts a on a.id=r.author_id join orders o on o.id=r.order_id where r.target_id=#{p.u} and o.seller_id=#{p.u} and r.hidden=0 order by r.created_at desc",
                 p("u", seller)).stream().map(r -> {
                     r.put("content", images.mask(s(r, "content")));
+                    r.put("nickname", images.mask(s(r, "nickname")));
                     return r;
                 }).toList();
     }
@@ -853,6 +854,7 @@ public class MarketService {
         admin(uid);
         Instant lower = from.isBlank() ? null : instant(from.trim(), "开始时间");
         Instant upper = to.isBlank() ? null : instant(to.trim(), "结束时间");
+        require(lower == null || upper == null || lower.isBefore(upper), "开始时间必须早于结束时间。");
         String sql = "select price,completed_at,created_at from orders where stage='已完成'";
         // 只取需要的三列：旧库可能有更大列或后续新增列，避免一次读出全部宽行。
         int count = 0;
@@ -954,7 +956,7 @@ public class MarketService {
                     db.exec("update accounts set verified=1 where id=#{p.id}", p("id", v.get("user_id")));
                 }
                 db.exec("update verifications set status=#{p.s},reason=#{p.r} where id=#{p.id}",
-                        p("s", pass ? "通过" : "退回", "r", clip(reason, 1000), "id", obj));
+                        p("s", pass ? "通过" : "退回", "r", reason, "id", obj));
                 fact(uid, actor, "VERIFICATION", obj, "认证审核", pass ? "通过" : "退回", "待审", pass ? "通过" : "退回",
                         null, reason);
                 notify("verification:" + obj, s(v, "user_id"), "校园认证" + (pass ? "通过" : "退回：" + clip(reason, 1000)));
@@ -966,7 +968,7 @@ public class MarketService {
                 boolean pass = Boolean.TRUE.equals(b.get("pass"));
                 int version = n(i, "version");
                 db.exec("update items set status=#{p.s},reason=#{p.r} where id=#{p.id}",
-                        p("s", pass ? "在售" : "审核退回", "r", clip(reason, 1000), "id", obj));
+                        p("s", pass ? "在售" : "审核退回", "r", reason, "id", obj));
                 fact(uid, actor, "ITEM", obj, "审核版本 v" + version, pass ? "通过" : "退回", "待审",
                         pass ? "在售" : "审核退回", version, reason);
                 notify("item-review:" + obj + ":v" + version, s(i, "seller_id"),

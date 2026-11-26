@@ -1,0 +1,25 @@
+{
+  "result": "PASS",
+  "before": {
+    "accounts": "5",
+    "orders": "6",
+    "items": "8",
+    "verifications": "4",
+    "assets": "11",
+    "reviews": "2",
+    "audit_facts": "45"
+  },
+  "after": {
+    "accounts": "5",
+    "orders": "6",
+    "items": "8",
+    "verifications": "4",
+    "assets": "11",
+    "reviews": "2",
+    "audit_facts": "45"
+  },
+  "old_migrations_unchanged": true,
+  "new_schema": "V6",
+  "reason_columns": "items\t1500\nverifications\t1500",
+  "persisted_login_and_order": true
+}
