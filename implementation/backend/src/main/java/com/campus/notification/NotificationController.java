@@ -30,7 +30,7 @@ public class NotificationController {
     @GetMapping("/api/notifications")
     public List<NotificationDto> list() {
         AccountRow actor = actorService.requireAccount();
-        outboxDispatcher.retryPending();
+        outboxDispatcher.retryPendingFor(actor.id);
         return notificationMapper.listRecent(actor.id, 100).stream()
                 .map(row -> new NotificationDto(row.id, actor.publicRef, row.content,
                         Utc.toInstant(row.createdAt)))

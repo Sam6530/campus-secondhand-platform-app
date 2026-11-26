@@ -7,10 +7,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.UUID;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -55,8 +58,15 @@ public class AssetService {
 
     @Transactional
     public String upload(String kind, MultipartFile file) {
-        AccountRow actor = actorService.requireNewBusinessAccount();
+        AccountRow actor = actorService.requireAccount();
         validate(kind, file);
+        if (actor.isRestricted()) {
+            throw ApiException.badRequest("账户当前受限，不能上传图片");
+        }
+        // 认证材料用于「先上传再提交认证」，未认证用户必须能传 VERIFY；物品图片仍要求已认证
+        if ("ITEM".equals(kind) && !actor.isVerified()) {
+            throw ApiException.badRequest("校园认证通过后才能上传物品图片");
+        }
         byte[] bytes;
         try {
             bytes = file.getBytes();
@@ -73,7 +83,7 @@ public class AssetService {
         if (contentType == null) {
             throw ApiException.badRequest("仅支持 JPEG 或 PNG 图片");
         }
-        checkPixels(bytes);
+        checkImageHeader(bytes);
 
         String id = UUID.randomUUID().toString();
         String extension = MediaType.IMAGE_PNG_VALUE.equals(contentType) ? ".png" : ".jpg";
@@ -111,9 +121,6 @@ public class AssetService {
         boolean owner = viewer.isPresent() && viewer.get().id.equals(asset.uploaderId);
         boolean admin = viewer.map(AccountRow::isAdmin).orElse(false);
         if (!publicItemImage && !owner && !admin && !orderImage) {
-            if (viewer.isEmpty()) {
-                throw ApiException.unauthorized("请先登录后读取该图片");
-            }
             throw ApiException.forbidden("无权读取该图片");
         }
 
@@ -171,15 +178,28 @@ public class AssetService {
         return true;
     }
 
-    private void checkPixels(byte[] bytes) {
-        try {
-            var image = ImageIO.read(new ByteArrayInputStream(bytes));
-            if (image == null) {
+    /**
+     * 只读图片头取宽高，避免整图解码（超大尺寸图片的解压炸弹会先耗内存再被像素上限拦住）。
+     */
+    private void checkImageHeader(byte[] bytes) {
+        try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            if (input == null) {
                 throw ApiException.badRequest("图片格式无法识别");
             }
-            long pixels = (long) image.getWidth() * image.getHeight();
-            if (pixels > maxPixels) {
-                throw ApiException.badRequest("图片像素超过允许上限");
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                throw ApiException.badRequest("图片格式无法识别");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input, true, true);
+                long width = reader.getWidth(0);
+                long height = reader.getHeight(0);
+                if (width * height > maxPixels) {
+                    throw ApiException.badRequest("图片像素超过允许上限");
+                }
+            } finally {
+                reader.dispose();
             }
         } catch (IOException ex) {
             throw ApiException.badRequest("图片格式无法识别");

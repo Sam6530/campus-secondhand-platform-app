@@ -40,13 +40,23 @@ public interface OrderMapper {
             """)
     OrderRow lockById(@Param("id") String id);
 
+    /**
+     * 只更新订单阶段与 B 负责的终止说明/完成时间。
+     * disputed（处理中争议）属于治理标记（C 负责），这里不写，避免覆盖治理刚受理的争议。
+     */
     @Update("""
             UPDATE orders
-            SET stage = #{stage}, disputed = #{disputed}, reminded = #{reminded}, reason = #{reason},
-                completed_at = #{completedAt}
+            SET stage = #{stage}, reason = #{reason}, completed_at = #{completedAt}
             WHERE id = #{id}
             """)
-    int update(OrderRow order);
+    int updateStage(OrderRow order);
+
+    @Update("""
+            UPDATE orders
+            SET reminded = 1
+            WHERE id = #{id}
+            """)
+    int markReminded(@Param("id") String id);
 
     @Select("""
             SELECT id, item_id, item_version, buyer_id, seller_id, buyer_public_ref, seller_public_ref, stage,
@@ -57,11 +67,4 @@ public interface OrderMapper {
             ORDER BY created_at DESC, id DESC
             """)
     List<OrderRow> listForUser(@Param("userId") String userId);
-
-    @Select("""
-            SELECT COUNT(*)
-            FROM orders
-            WHERE item_id = #{itemId}
-            """)
-    int countByItem(@Param("itemId") String itemId);
 }

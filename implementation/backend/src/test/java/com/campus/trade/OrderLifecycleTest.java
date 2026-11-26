@@ -240,6 +240,11 @@ class OrderLifecycleTest {
         assertApiError(() -> orderService.create(new CreateOrderInput(itemId, 1), "key-order-0102"),
                 HttpStatus.BAD_REQUEST);
 
+        fixtures.restrict(seller.id());
+        fixtures.setVerified(seller.id(), 0);
+        assertApiError(() -> orderService.create(new CreateOrderInput(itemId, 1), "key-order-0103"),
+                HttpStatus.BAD_REQUEST);
+
         assertThat(fixtures.count("orders", null)).isZero();
         assertThat(fixtures.count("reservations", null)).isZero();
         assertThat(fixtures.itemStatus(itemId)).isEqualTo("在售");

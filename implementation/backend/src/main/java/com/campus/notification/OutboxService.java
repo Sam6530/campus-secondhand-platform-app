@@ -26,11 +26,26 @@ public class OutboxService {
         row.eventKey = eventKey;
         row.recipientId = recipientId;
         row.eventType = eventType;
-        row.content = content.length() > 500 ? content.substring(0, 500) : content;
+        row.content = clampContent(content);
         row.status = "PENDING";
         row.attempts = 0;
         row.nextAttemptAt = LocalDateTime.now(java.time.ZoneOffset.UTC);
         row.createdAt = Utc.now();
         outboxMapper.insert(row);
+    }
+
+    /** 按 UTF-16 安全截断，避免切断代理对（emoji 等）导致写库报错。 */
+    private String clampContent(String content) {
+        if (content == null) {
+            return "";
+        }
+        if (content.length() <= 500) {
+            return content;
+        }
+        int end = 500;
+        if (Character.isHighSurrogate(content.charAt(end - 1))) {
+            end--;
+        }
+        return content.substring(0, end);
     }
 }

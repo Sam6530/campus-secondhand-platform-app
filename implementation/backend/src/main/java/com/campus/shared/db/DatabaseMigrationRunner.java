@@ -62,8 +62,11 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
         List<Migration> migrations = loadMigrations();
         try (Connection connection = dataSource.getConnection()) {
             setAutoCommit(connection, true);
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT GET_LOCK('campus_schema_migration', 30)");
+            try (Statement statement = connection.createStatement();
+                 ResultSet lock = statement.executeQuery("SELECT GET_LOCK('campus_schema_migration', 30)")) {
+                if (!lock.next() || lock.getInt(1) != 1) {
+                    throw new IllegalStateException("未取得结构迁移锁（可能有另一实例正在迁移），本次启动不继续执行迁移");
+                }
             }
             try {
                 ensureSchemaTable(connection);

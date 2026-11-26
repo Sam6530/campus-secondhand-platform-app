@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -12,6 +13,10 @@ import org.springframework.stereotype.Component;
 /** 合成数据与清理：每个用例独立前态（U1/U2/U3、S、G、I1、I2、O1）。 */
 @Component
 public class TestFixtures {
+
+    /** 防止误把测试指向联调/真实库后清空数据；确需他库时显式设置环境变量。 */
+    private static final boolean ALLOW_NON_TEST_DB =
+            "true".equalsIgnoreCase(System.getenv("CAMPUS_ALLOW_NON_TEST_DB"));
 
     private final JdbcTemplate jdbc;
 
@@ -72,11 +77,26 @@ public class TestFixtures {
     }
 
     public void reset() {
+        String database = jdbc.queryForObject("SELECT DATABASE()", String.class);
+        if (!ALLOW_NON_TEST_DB && (database == null || !database.toLowerCase().contains("selftest"))) {
+            throw new IllegalStateException("拒绝对非测试库执行清库：" + database
+                    + "；请把 DB_URL 指向 campus_resale_selftest，或显式设置 CAMPUS_ALLOW_NON_TEST_DB=true");
+        }
         List<String> tables = List.of("notifications", "notification_outbox", "deliveries", "reservations",
                 "audit_facts", "operation_receipts", "orders", "item_versions", "items", "assets", "accounts");
         for (String table : tables) {
             jdbc.update("DELETE FROM " + table);
         }
+    }
+
+    /** 审计事实（按时间升序），供用例断言操作者/对象/前后态/原因/结果。 */
+    public List<Map<String, Object>> auditRows(String objectId) {
+        return jdbc.queryForList("""
+                SELECT actor_id, object_type, object_id, action, from_state, to_state, reason, result
+                FROM audit_facts
+                WHERE object_id = ?
+                ORDER BY created_at ASC, id ASC
+                """, objectId);
     }
 
     public int count(String table, String where, Object... args) {
@@ -113,6 +133,10 @@ public class TestFixtures {
 
     public void hideItem(String itemId) {
         jdbc.update("UPDATE items SET hidden = 1 WHERE id = ?", itemId);
+    }
+
+    public void setVerified(String accountId, int verified) {
+        jdbc.update("UPDATE accounts SET verified = ? WHERE id = ?", verified, accountId);
     }
 
     public void renameTable(String from, String to) {

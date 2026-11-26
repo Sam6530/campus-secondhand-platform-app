@@ -22,6 +22,8 @@ import com.campus.trade.item.ItemDto;
 import com.campus.trade.item.ItemInput;
 import com.campus.trade.item.ItemService;
 import com.campus.trade.item.ItemUpdateInput;
+import com.campus.trade.order.CreateOrderInput;
+import com.campus.trade.order.OrderService;
 
 /** 物品发布/修改/撤下/审核与公开检索的自测（TC-RB-04/05/06/07/22/24 的 B 范围）。 */
 @SpringBootTest
@@ -33,6 +35,8 @@ class ItemLifecycleTest {
     private ItemService itemService;
     @Autowired
     private ItemReviewService itemReviewService;
+    @Autowired
+    private OrderService orderService;
     @Autowired
     private TestFixtures fixtures;
 
@@ -131,6 +135,18 @@ class ItemLifecycleTest {
                 HttpStatus.BAD_REQUEST);
         assertThat(fixtures.count("item_versions", "item_id = ?", created.id())).isEqualTo(2);
         assertThat(fixtures.auditCount(created.id())).isGreaterThanOrEqualTo(4);
+        var audits = fixtures.auditRows(created.id());
+        assertThat(audits).anySatisfy(row -> {
+            assertThat(row.get("action")).isEqualTo("ITEM_PUBLISH");
+            assertThat(row.get("actor_id")).isEqualTo(seller.id());
+            assertThat(row.get("object_type")).isEqualTo("ITEM");
+        });
+        assertThat(audits).anySatisfy(row -> {
+            assertThat(row.get("action")).isEqualTo("ITEM_REVIEW");
+            assertThat(row.get("actor_id")).isEqualTo(admin.id());
+            assertThat(row.get("reason")).isEqualTo("材料齐全，可公开");
+            assertThat(row.get("to_state")).isEqualTo("在售");
+        });
     }
 
     @Test
@@ -183,6 +199,55 @@ class ItemLifecycleTest {
         assertThat(result).extracting(p -> p.id()).containsExactly(visible);
         assertThat(itemService.search(null, "运动户外", 1)).isEmpty();
         assertApiError(() -> itemService.search(null, null, 0), HttpStatus.BAD_REQUEST);
+        assertApiError(() -> itemService.search(null, null, Integer.MAX_VALUE), HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @DisplayName("TC-RB-05：有效订单占用期间禁止改标的与撤下")
+    void editAndWithdrawBlockedByActiveOrder() {
+        ItemDto item = itemService.create(input("有机化学教材", "40.00"), "key-lock-0001");
+        TestActors.login(admin.id());
+        itemReviewService.review(item.id(), 1, true, "通过");
+
+        TestFixtures.Account buyer = fixtures.createUser("buyer01", "买方U1", 1, 0);
+        TestActors.login(buyer.id());
+        orderService.create(new CreateOrderInput(item.id(), 1), "key-lock-order1");
+
+        TestActors.login(seller.id());
+        assertApiError(() -> itemService.update(item.id(),
+                new ItemUpdateInput("有机化学教材", "教材书籍", "改价", "35.00", imageId, 1),
+                "key-lock-0002"), HttpStatus.BAD_REQUEST);
+        assertApiError(() -> itemService.withdraw(item.id()), HttpStatus.BAD_REQUEST);
+        assertThat(fixtures.itemStatus(item.id())).isEqualTo("交易中");
+    }
+
+    @Test
+    @DisplayName("TC-RB-06：撤下后显式重新提交进入待审（版本递增，不自动复售）")
+    void republishAfterWithdraw() {
+        ItemDto item = itemService.create(input("宿舍收纳箱", "10.00"), "key-repub-0001");
+        TestActors.login(admin.id());
+        itemReviewService.review(item.id(), 1, true, "通过");
+        TestActors.login(seller.id());
+        itemService.withdraw(item.id());
+
+        ItemDto republished = itemService.update(item.id(),
+                new ItemUpdateInput("宿舍收纳箱", "宿舍生活", "重新出售", "12.00", imageId, 1),
+                "key-repub-0002");
+        assertThat(republished.version()).isEqualTo(2);
+        assertThat(republished.status()).isEqualTo("待审");
+        assertThat(itemService.search(null, null, 1)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("管理员不能审核本人发布的物品（利益冲突）")
+    void adminCannotReviewOwnItem() {
+        String adminImage = fixtures.createAsset(admin.id(), "ITEM");
+        TestActors.login(admin.id());
+        ItemDto own = itemService.create(
+                new ItemInput("管理员发布的教材", "教材书籍", "合成描述", "10.00", adminImage),
+                "key-selfreview-0001");
+        assertApiError(() -> itemReviewService.review(own.id(), 1, true, "自己审自己"), HttpStatus.FORBIDDEN);
+        assertThat(fixtures.itemStatus(own.id())).isEqualTo("待审");
     }
 }
 

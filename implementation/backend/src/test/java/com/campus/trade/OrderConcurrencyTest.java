@@ -24,6 +24,7 @@ import com.campus.support.TestActorConfig;
 import com.campus.support.TestActors;
 import com.campus.support.TestFixtures;
 import com.campus.trade.order.CreateOrderInput;
+import com.campus.trade.order.OrderActionInput;
 import com.campus.trade.order.OrderDto;
 import com.campus.trade.order.OrderService;
 
@@ -77,17 +78,64 @@ class OrderConcurrencyTest {
     }
 
     @Test
-    @DisplayName("同一买方同键同内容并发重试：只成立一笔订单")
+    @DisplayName("同一买方同键同内容并发重试：只成立一笔订单并都返回同一结果")
     void sameIntentRace() throws Exception {
         CyclicBarrier barrier = new CyclicBarrier(2);
         List<String> results = runConcurrently(
                 attempt(buyerA.id(), "key-race-0003", barrier),
                 attempt(buyerA.id(), "key-race-0003", barrier));
 
-        assertThat(results).anySatisfy(r -> assertThat(r).startsWith("OK:"));
+        assertThat(results).allSatisfy(r -> assertThat(r).startsWith("OK:"));
+        assertThat(results.get(0)).isEqualTo(results.get(1));
         assertThat(fixtures.count("orders", "item_id = ?", itemId)).isEqualTo(1);
         assertThat(fixtures.count("reservations", "item_id = ?", itemId)).isEqualTo(1);
         assertThat(fixtures.count("operation_receipts", "action = 'ORDER_CREATE'")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("TC-RB-11：取消与交付登记并发，只成立一个相容结果且状态/占用不分裂")
+    void cancelVsDeliverRace() throws Exception {
+        TestActors.login(buyerA.id());
+        OrderDto order = orderService.create(new CreateOrderInput(itemId, 1), "key-race-0200");
+        TestActors.login(seller.id());
+        orderService.act(order.id(), "accept", new OrderActionInput(null, null), "key-race-0201");
+
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        List<String> results = runConcurrently(
+                actAttempt(buyerA.id(), order.id(), "cancel", "双方尚未交接", true, "key-race-0202", barrier),
+                actAttempt(seller.id(), order.id(), "deliver", "已在宿舍楼下交接", true, "key-race-0203",
+                        barrier));
+
+        assertThat(results).filteredOn(r -> r.startsWith("OK:")).hasSize(1);
+        assertThat(results).anySatisfy(r -> assertThat(r).isEqualTo("ERR:400"));
+
+        String stage = fixtures.orderStage(order.id());
+        assertThat(stage).isIn("已取消", "待买方确认");
+        if ("已取消".equals(stage)) {
+            assertThat(fixtures.count("deliveries", "order_id = ?", order.id())).isZero();
+            assertThat(fixtures.count("reservations", "item_id = ?", itemId)).isZero();
+            assertThat(fixtures.itemStatus(itemId)).isEqualTo("在售");
+        } else {
+            assertThat(fixtures.count("deliveries", "order_id = ?", order.id())).isEqualTo(1);
+            assertThat(fixtures.count("reservations", "item_id = ?", itemId)).isEqualTo(1);
+            assertThat(fixtures.itemStatus(itemId)).isEqualTo("交易中");
+        }
+    }
+
+    private Callable<String> actAttempt(String userId, String orderId, String action, String reason,
+                                        boolean declared, String key, CyclicBarrier barrier) {
+        return () -> {
+            TestActors.login(userId);
+            try {
+                barrier.await(10, TimeUnit.SECONDS);
+                orderService.act(orderId, action, new OrderActionInput(reason, declared), key);
+                return "OK:" + action;
+            } catch (ApiException ex) {
+                return "ERR:" + ex.getStatus().value();
+            } finally {
+                TestActors.logout();
+            }
+        };
     }
 
     private Callable<String> attempt(String userId, String key, CyclicBarrier barrier) {

@@ -45,10 +45,21 @@ public interface ItemMapper {
     @Update("""
             UPDATE items
             SET status = #{status}, current_version = #{currentVersion}, image_id = #{imageId},
-                hidden = #{hidden}, relist_allowed = #{relistAllowed}, updated_at = #{updatedAt}
+                updated_at = #{updatedAt}
             WHERE id = #{id}
             """)
-    int updateItem(ItemRow item);
+    int updateVersionPointer(ItemRow item);
+
+    /**
+     * 只更新生命周期状态。hidden/relist_allowed 属于治理标记（C 负责），
+     * 这里不写，避免把治理刚设置的隐藏/限制覆盖回旧值。
+     */
+    @Update("""
+            UPDATE items
+            SET status = #{status}, updated_at = #{updatedAt}
+            WHERE id = #{id}
+            """)
+    int updateStatus(ItemRow item);
 
     @Select("""
             SELECT id, item_id, version, title, category, description, price, image_id,
@@ -103,7 +114,7 @@ public interface ItemMapper {
     List<ItemViewRow> searchPublic(@Param("q") String q,
                                    @Param("category") String category,
                                    @Param("limit") int limit,
-                                   @Param("offset") int offset);
+                                   @Param("offset") long offset);
 
     @Select("""
             SELECT i.id, i.seller_id, a.public_ref AS seller_ref, a.nickname AS seller_name,

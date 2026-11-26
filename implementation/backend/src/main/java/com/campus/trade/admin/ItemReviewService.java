@@ -69,6 +69,9 @@ public class ItemReviewService {
             if (item == null) {
                 throw ApiException.notFound("物品不存在");
             }
+            if (admin.id.equals(item.sellerId)) {
+                throw ApiException.forbidden("不能审核本人发布的物品，请由其他管理员处理");
+            }
             if (!ItemStatuses.PENDING_REVIEW.equals(item.status)) {
                 throw ApiException.badRequest("只有待审物品可以审核，当前状态为「" + item.status + "」");
             }
@@ -92,7 +95,7 @@ public class ItemReviewService {
             String from = item.status;
             item.status = pass ? ItemStatuses.ON_SALE : ItemStatuses.RETURNED;
             item.updatedAt = Utc.now();
-            itemMapper.updateItem(item);
+            itemMapper.updateStatus(item);
 
             auditService.record(admin.id, "ITEM", itemId, "ITEM_REVIEW", from, item.status, reason,
                     pass ? "PASS" : "RETURN");

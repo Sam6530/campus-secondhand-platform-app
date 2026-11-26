@@ -29,6 +29,7 @@ import com.campus.trade.order.ReservationMapper;
 public class ItemService {
 
     private static final int PAGE_SIZE = 20;
+    private static final int MAX_PAGE = 5000;
     private static final List<String> EDITABLE_STATUSES = List.of(
             ItemStatuses.PENDING_REVIEW, ItemStatuses.ON_SALE, ItemStatuses.RETURNED, ItemStatuses.WITHDRAWN);
 
@@ -54,8 +55,8 @@ public class ItemService {
 
     /** 公开检索：只返回符合 BR03 的物品，空结果为空集合，不泄露未审/隐藏/受限内容。 */
     public List<PublicItemDto> search(String q, String category, int page) {
-        if (page < 1) {
-            throw ApiException.badRequest("page 必须从 1 开始");
+        if (page < 1 || page > MAX_PAGE) {
+            throw ApiException.badRequest("page 超出允许范围（1-" + MAX_PAGE + "）");
         }
         String keyword = normalize(q);
         if (keyword != null && keyword.length() > 120) {
@@ -65,7 +66,8 @@ public class ItemService {
         if (selectedCategory != null && !ItemStatuses.CATEGORIES.contains(selectedCategory)) {
             throw ApiException.badRequest("物品分类不合法");
         }
-        return itemMapper.searchPublic(keyword, selectedCategory, PAGE_SIZE, (page - 1) * PAGE_SIZE).stream()
+        long offset = (long) (page - 1) * PAGE_SIZE;
+        return itemMapper.searchPublic(keyword, selectedCategory, PAGE_SIZE, offset).stream()
                 .map(this::toPublicDto)
                 .toList();
     }
@@ -146,6 +148,7 @@ public class ItemService {
         AccountRow seller = actorService.requireNewBusinessAccount();
         requireOwnedItemImage(seller.id, content.imageId());
 
+        String[] replayed = new String[1];
         try {
             transactionTemplate.executeWithoutResult(status -> {
                 ItemRow item = itemMapper.lockById(itemId);
@@ -154,6 +157,13 @@ public class ItemService {
                 }
                 if (!item.sellerId.equals(seller.id)) {
                     throw ApiException.forbidden("只能修改本人发布的物品");
+                }
+                // 锁后重读回执：并发同键请求在等锁期间首个已成立，这里直接返回原结果，不重复递增版本
+                OperationReceiptRow raced = idempotency.find(seller.id, "ITEM_UPDATE", key);
+                if (raced != null) {
+                    idempotency.replayResultRef(raced, hash);
+                    replayed[0] = raced.resultRef;
+                    return;
                 }
                 if (input.version() != item.currentVersion) {
                     throw ApiException.badRequest("物品版本已变化，请刷新后使用当前版本修改");
@@ -177,7 +187,7 @@ public class ItemService {
                 item.status = ItemStatuses.PENDING_REVIEW;
                 item.imageId = content.imageId();
                 item.updatedAt = Utc.now();
-                itemMapper.updateItem(item);
+                itemMapper.updateVersionPointer(item);
                 auditService.record(seller.id, "ITEM", itemId, "ITEM_EDIT", fromState,
                         ItemStatuses.PENDING_REVIEW, null, "SUCCESS");
                 idempotency.record(seller.id, "ITEM_UPDATE", key, hash, itemId);
@@ -189,6 +199,9 @@ public class ItemService {
                 return loadItem(raced.resultRef);
             }
             throw ApiException.conflict("同一提交意图正在处理中，请稍后查询结果");
+        }
+        if (replayed[0] != null) {
+            return loadItem(replayed[0]);
         }
         return loadItem(itemId);
     }
@@ -215,7 +228,7 @@ public class ItemService {
             }
             item.status = ItemStatuses.WITHDRAWN;
             item.updatedAt = Utc.now();
-            itemMapper.updateItem(item);
+            itemMapper.updateStatus(item);
             auditService.record(seller.id, "ITEM", itemId, "ITEM_WITHDRAW", ItemStatuses.ON_SALE,
                     ItemStatuses.WITHDRAWN, null, "SUCCESS");
         });

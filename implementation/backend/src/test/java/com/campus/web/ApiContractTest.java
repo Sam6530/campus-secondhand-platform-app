@@ -1,6 +1,7 @@
 package com.campus.web;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -105,7 +106,7 @@ class ApiContractTest {
     @Test
     @DisplayName("未实现或不存在的接口返回 404 与统一错误体，不用 500 冒充")
     void unknownEndpointReturns404() throws Exception {
-        mockMvc.perform(get("/api/favorites"))
+        mockMvc.perform(get("/api/__not_exists__"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").exists());
     }
@@ -147,6 +148,28 @@ class ApiContractTest {
                                 {"title":"接口物品","category":"教材书籍","description":"描述",
                                  "price":"19.90","image_id":"%s","version":2}
                                 """.formatted(imageId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    @DisplayName("发布缺请求体返回 400（契约要求 body 必填）")
+    void publishRequiresBody() throws Exception {
+        TestActors.login(seller.id());
+        mockMvc.perform(post("/api/items")
+                        .header("Idempotency-Key", "key-http-0006")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+        org.assertj.core.api.Assertions.assertThat(fixtures.count("items", null)).isZero();
+    }
+
+    @Test
+    @DisplayName("图片上传缺表单字段返回 400（不是 500）")
+    void uploadMissingPart() throws Exception {
+        TestActors.login(seller.id());
+        mockMvc.perform(multipart("/api/assets").param("kind", "ITEM"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }

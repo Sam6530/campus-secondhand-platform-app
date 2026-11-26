@@ -22,24 +22,26 @@ import com.campus.shared.db.Utc;
 public class OutboxDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxDispatcher.class);
-    private static final int MAX_ATTEMPTS = 50;
 
     private final OutboxMapper outboxMapper;
     private final NotificationMapper notificationMapper;
     private final TransactionTemplate transactionTemplate;
     private final int batchSize;
     private final int retryDelaySeconds;
+    private final int maxAttempts;
 
     public OutboxDispatcher(OutboxMapper outboxMapper,
                             NotificationMapper notificationMapper,
                             TransactionTemplate transactionTemplate,
                             @Value("${campus.notification.batch-size:50}") int batchSize,
-                            @Value("${campus.notification.retry-delay-seconds:30}") int retryDelaySeconds) {
+                            @Value("${campus.notification.retry-delay-seconds:30}") int retryDelaySeconds,
+                            @Value("${campus.notification.max-attempts:100}") int maxAttempts) {
         this.outboxMapper = outboxMapper;
         this.notificationMapper = notificationMapper;
         this.transactionTemplate = transactionTemplate;
         this.batchSize = batchSize;
         this.retryDelaySeconds = retryDelaySeconds;
+        this.maxAttempts = maxAttempts;
     }
 
     /** 业务提交后调用：单个事件失败不影响其他事件，也不回滚业务。 */
@@ -49,9 +51,10 @@ public class OutboxDispatcher {
         }
     }
 
-    /** 读取通知前的补投：只捞当前可重试的一批，避免无限扩张。 */
-    public void retryPending() {
-        List<OutboxRow> rows = outboxMapper.findRetryable(Utc.now(), MAX_ATTEMPTS, batchSize);
+    /** 读取本人通知前的补投：只补投该收件人的待发送记录，不替其他用户承担积压。 */
+    public void retryPendingFor(String recipientId) {
+        List<OutboxRow> rows = outboxMapper.findRetryableForRecipient(recipientId, Utc.now(), maxAttempts,
+                batchSize);
         for (OutboxRow row : rows) {
             dispatchOne(row.eventKey);
         }
@@ -61,7 +64,12 @@ public class OutboxDispatcher {
         try {
             transactionTemplate.executeWithoutResult(status -> {
                 OutboxRow row = outboxMapper.findByEventKey(eventKey);
-                if (row == null || "SENT".equals(row.status)) {
+                if (row == null || "SENT".equals(row.status) || "DEAD".equals(row.status)) {
+                    return;
+                }
+                if (notificationMapper.countByOutbox(row.id) > 0) {
+                    // 已写过通知（例如上次写完但标记前失败），只补标记，不重复插入
+                    outboxMapper.markSent(row.id, Utc.now());
                     return;
                 }
                 NotificationRow notification = new NotificationRow();
@@ -70,7 +78,7 @@ public class OutboxDispatcher {
                 notification.outboxId = row.id;
                 notification.content = row.content;
                 notification.createdAt = Utc.now();
-                notificationMapper.insertIgnore(notification);
+                notificationMapper.insert(notification);
                 outboxMapper.markSent(row.id, Utc.now());
             });
         } catch (RuntimeException ex) {
@@ -83,7 +91,13 @@ public class OutboxDispatcher {
         try {
             transactionTemplate.executeWithoutResult(status -> {
                 OutboxRow row = outboxMapper.findByEventKey(eventKey);
-                if (row == null || "SENT".equals(row.status)) {
+                if (row == null || "SENT".equals(row.status) || "DEAD".equals(row.status)) {
+                    return;
+                }
+                if (row.attempts + 1 >= maxAttempts) {
+                    outboxMapper.markDead(row.id, trim(cause.getMessage()), Utc.now());
+                    log.error("通知投递达到上限 {} 次，已转 DEAD 等待人工核查（记录保留，不会被删除）：eventKey={}",
+                            maxAttempts, eventKey);
                     return;
                 }
                 LocalDateTime nextAttempt = Utc.now().plusSeconds(retryDelaySeconds);

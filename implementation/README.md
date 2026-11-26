@@ -72,11 +72,36 @@ curl.exe http://127.0.0.1:18080/api/items
 
 ## 5 自测
 
+### 5.1 测试环境速查
+
+| 项目 | 实测值 |
+|---|---|
+| 测试库 | 本机独立合成 MySQL 8.4.13 `127.0.0.1:3307` 的 `campus_resale_selftest` |
+| 实例数据目录 | `%USERPROFILE%\tools\mysql84-dev\data`（仓库外，可随时丢弃重建；不影响系统 3306 服务） |
+| 测试配置 | `implementation/backend/src/test/resources/application-test.yml`（可用 `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` 覆盖） |
+| 构建工具 | Maven 3.9.9（本机在 `%USERPROFILE%\tools\apache-maven-3.9.9`，或用 `MAVEN_HOME`/PATH） |
+| 漏洞提示 | 测试会**清空测试库业务表**，`DB_URL` 必须指向一次性测试库 |
+
+### 5.2 启动测试
+
 ```powershell
-cd implementation\backend ; mvn -B test
+# 起一次性 MySQL（首次）：详见 backend/README.md 第 6.2 节
+# 运行全量自测（真实 MySQL、含并发与故障注入）
+$env:MAVEN_HOME = "$env:USERPROFILE\tools\apache-maven-3.9.9"
+$env:Path = "$env:MAVEN_HOME\bin;" + $env:Path
+cd implementation\backend
+mvn -B test
+
+# 或：构建 + 测试 + 打包一条命令
+powershell -ExecutionPolicy Bypass -File implementation\build.ps1
 ```
 
-2026-11-25 实跑结果：**Tests run: 30, Failures: 0, Errors: 0, Skipped: 0（BUILD SUCCESS）**，
+从零搭环境、单类/单方法运行、故障注入残留恢复、停止清理与排错表，见
+[backend/README.md](backend/README.md) 第 6 节「可运行测试环境与启动方法」。
+
+### 5.3 实测结果（2026-11-25）
+
+`Tests run: 43, Failures: 0, Errors: 0, Skipped: 0（BUILD SUCCESS）`，9 个测试类；
 执行库为独立合成 MySQL 8.4.13（`campus_resale_selftest`），并发用例使用两个真实数据库连接与屏障。
 
 同一日真实启动冒烟（`campus_resale_app`）：
@@ -99,4 +124,6 @@ cd implementation\backend ; mvn -B test
 | 收藏、评价与信誉、统计、争议入口、治理联动、通知重试策略完善 | B（V2） | V1 只做必要守卫与基础通知 |
 | 前端页面、/api 代理 | A | 契约字段以 `documents/design/openapi.yaml` 为准 |
 | 一键启停脚本、容器化、联调机地址 | 全组 | 依赖 Q-RB-01 与实际环境登记 |
+
+
 

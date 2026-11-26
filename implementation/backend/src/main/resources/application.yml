@@ -23,7 +23,8 @@ spring:
   servlet:
     multipart:
       max-file-size: ${UPLOAD_MAX_BYTES:5242880}
-      max-request-size: ${UPLOAD_MAX_BYTES:5242880}
+      # 请求体上限需大于单文件上限，否则一张 5MB 图片会因 multipart 边界开销被拒
+      max-request-size: ${UPLOAD_MAX_REQUEST_BYTES:6291456}
 
 mybatis:
   configuration:
@@ -41,6 +42,8 @@ campus:
     batch-size: ${NOTIFICATION_BATCH_SIZE:50}
     # 退避秒数：失败后下次可重试的间隔，V2 再补按时段/次数的完整策略
     retry-delay-seconds: ${RETRY_INTERVAL_SECONDS:30}
+    # 达到上限后转 DEAD（保留记录、停止自动重试并记错误日志），不静默丢弃
+    max-attempts: ${NOTIFICATION_MAX_ATTEMPTS:100}
 
 logging:
   level:

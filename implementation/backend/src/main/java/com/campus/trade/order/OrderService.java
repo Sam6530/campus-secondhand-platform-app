@@ -166,6 +166,12 @@ public class OrderService {
         if (item == null) {
             throw ApiException.notFound("物品不存在");
         }
+        // 锁后重读回执：并发同键请求在等锁期间首个已成立，这里直接返回原订单，不再触发占用冲突
+        OperationReceiptRow replayed = idempotency.find(buyer.id, "ORDER_CREATE", key);
+        if (replayed != null) {
+            idempotency.replayResultRef(replayed, hash);
+            return replayed.resultRef;
+        }
         if (item.currentVersion != version) {
             throw ApiException.badRequest("物品版本已变化，请刷新后重新下单");
         }
@@ -191,6 +197,9 @@ public class OrderService {
         AccountRow seller = accountMapper.findById(item.sellerId);
         if (seller == null) {
             throw ApiException.badRequest("卖方账户不可用");
+        }
+        if (!seller.isVerified()) {
+            throw ApiException.badRequest("卖方账户未通过校园认证，不能建立新订单");
         }
         if (seller.isRestricted()) {
             throw ApiException.badRequest("卖方账户当前受限，不能建立新订单");
@@ -221,7 +230,7 @@ public class OrderService {
         String fromItemStatus = item.status;
         item.status = ItemStatuses.IN_TRADE;
         item.updatedAt = now;
-        itemMapper.updateItem(item);
+        itemMapper.updateStatus(item);
 
         auditService.record(buyer.id, "ORDER", order.id, "ORDER_CREATE", null, OrderStages.WAIT_SELLER,
                 null, "SUCCESS");
@@ -261,7 +270,10 @@ public class OrderService {
             case "remind" -> remind(actor, order, events);
             default -> throw ApiException.badRequest("不支持的订单操作：" + action);
         }
-        orderMapper.update(order);
+        orderMapper.updateStage(order);
+        if (order.reminded == 1) {
+            orderMapper.markReminded(order.id);
+        }
         idempotency.record(actor.id, actionCode, key, hash, order.id);
     }
 
@@ -377,7 +389,7 @@ public class OrderService {
             String from = item.status;
             item.status = ItemStatuses.SOLD;
             item.updatedAt = Utc.now();
-            itemMapper.updateItem(item);
+            itemMapper.updateStatus(item);
             auditService.record(actor.id, "ITEM", item.id, "ITEM_SOLD", from, ItemStatuses.SOLD, null,
                     "SUCCESS");
             return;
@@ -392,7 +404,7 @@ public class OrderService {
         String from = item.status;
         item.status = ItemStatuses.ON_SALE;
         item.updatedAt = Utc.now();
-        itemMapper.updateItem(item);
+        itemMapper.updateStatus(item);
         auditService.record(actor.id, "ITEM", item.id, "ITEM_RELEASED", from, ItemStatuses.ON_SALE, null,
                 "SUCCESS");
     }

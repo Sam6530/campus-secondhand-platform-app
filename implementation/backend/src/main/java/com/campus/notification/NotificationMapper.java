@@ -11,12 +11,20 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface NotificationMapper {
 
-    /** outbox_id 唯一：同一事件不会生成第二条最终通知（重试幂等）。 */
+    /**
+     * outbox_id 唯一：同一事件不会生成第二条最终通知（重试幂等）。
+     * 不用 INSERT IGNORE，避免把「字段超长/FK 失败」等真实错误吞掉后仍标记已发送。
+     */
     @Insert("""
-            INSERT IGNORE INTO notifications (id, user_id, outbox_id, content, created_at)
+            INSERT INTO notifications (id, user_id, outbox_id, content, created_at)
             VALUES (#{id}, #{userId}, #{outboxId}, #{content}, #{createdAt})
             """)
-    int insertIgnore(NotificationRow row);
+    int insert(NotificationRow row);
+
+    @Select("""
+            SELECT COUNT(*) FROM notifications WHERE outbox_id = #{outboxId}
+            """)
+    int countByOutbox(@Param("outboxId") String outboxId);
 
     @Select("""
             SELECT id, user_id, outbox_id, content, created_at

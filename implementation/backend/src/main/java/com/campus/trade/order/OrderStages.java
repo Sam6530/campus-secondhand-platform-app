@@ -13,9 +13,4 @@ public final class OrderStages {
 
     private OrderStages() {
     }
-
-    public static boolean isTerminal(String stage) {
-        return COMPLETED.equals(stage) || CANCELLED.equals(stage) || REJECTED.equals(stage)
-                || ABNORMAL_TERMINATED.equals(stage);
-    }
 }
