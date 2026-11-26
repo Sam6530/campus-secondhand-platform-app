@@ -1,4 +1,4 @@
-# 数据库迁移脚本
+# 数据库升级脚本
 
 执行者：`cn.campus.SchemaMigrator`。应用启动时按版本号升序执行尚未应用的脚本，并把
 `version / description / checksum / applied_at` 写入 `schema_migrations`。

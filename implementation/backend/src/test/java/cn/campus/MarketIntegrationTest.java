@@ -84,7 +84,7 @@ class MarketIntegrationTest {
         var migrations = db.list("select version,applied_at from schema_migrations order by version", p());
         assertTrue(migrations.size() >= 2, "应已应用基线脚本与索引脚本");
         assertEquals(1, n(migrations.get(0), "version"));
-        assertTrue(s(migrations.get(0), "applied_at").endsWith("Z"), "迁移时间应保存为 UTC ISO-8601");
+        assertTrue(s(migrations.get(0), "applied_at").endsWith("Z"), "升级时间应保存为 UTC ISO-8601");
         var item = fresh();
         String createdAt = s(item, "created_at");
         assertTrue(createdAt.endsWith("Z"), "业务时间应保存为 UTC ISO-8601：" + createdAt);

@@ -865,7 +865,7 @@ public class MarketService {
      * 因此本项目（课程规模，已完成订单为千条量级）读取已完成订单的完成时刻与快照金额，
      * 在 Java 中用 Instant 精确比较完成时刻、用 BigDecimal 汇总快照金额；不落库改写旧时间，
      * 也不对原始 ISO 字符串做排序比较（包括不以字符串条件预筛，避免任何依赖书写格式的边界）。
-     * 若数据量增长，可另做保留纳秒的时间类型迁移（列类型迁移，非字符串排序）。
+     * 若数据量增长，可另做保留纳秒的时间类型升级（列类型升级，非字符串排序）。
      */
     public Map<String, Object> statistics(String uid, String from, String to) {
         admin(uid);

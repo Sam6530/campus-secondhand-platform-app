@@ -9,7 +9,7 @@
 
 | 目录/文件 | 真实状态 | 负责 |
 |---|---|---|
-| `backend/` | V3后端：cn.campus入口、交易与治理数据、V1—V6迁移及回归测试 | B |
+| `backend/` | V3后端：cn.campus入口、交易与治理数据、V1—V6升级及回归测试 | B |
 | `backend/src/main/java/cn/campus/`中C的六个文件 | AdminBootstrap、AdminController、AuthController、CommunityController、SeedData、SessionSupport保持原样 | C |
 | `frontend/` | V3前端：Vue 3、Vite、JavaScript页面及浏览器侧回归 | A |
 | `build.ps1` | 构建后端并校验`target/campus-resale-backend.jar`；找不到Maven时明确报错 | B |
@@ -31,7 +31,7 @@
 | 数据库与账号 | 运行库、测试库由环境变量提供；真实凭据不写入仓库 |
 | 后端端口 | 18080（`SERVER_PORT`可改） |
 | 上传目录 | `implementation/backend/data/uploads`（`UPLOAD_DIR`可改，不入库） |
-| 结构迁移 | V1 baseline、V2 indexes、V3 idempotency evidence audit、V4 lost update guards、V5 notification outbox；`schema_migrations`记录版本、说明、SHA-256与应用时间 |
+| 结构升级 | V1 baseline、V2 indexes、V3 idempotency evidence audit、V4 lost update guards、V5 notification outbox；`schema_migrations`记录版本、说明、SHA-256与应用时间 |
 | 前端开发端口 | 5173（`FRONTEND_PORT`可改） |
 
 ## 3 构建与运行
@@ -84,7 +84,7 @@ powershell -ExecutionPolicy Bypass -File implementation\build.ps1
 
 - `mvn -B test`：50个测试，0失败、0错误、0跳过，BUILD SUCCESS，13.7秒；异常堆栈为断言用例的预期输出。
 - `mvn -B -DskipTests package`：BUILD SUCCESS，`campus-resale-backend.jar`为26,702,667字节。
-- 临时独立MySQL 8.4.13空库（`campus_v2_check`）启动：V1—V5迁移全部应用；`GET /api/health`返回200且`schema`为V5；`GET /api/items`返回200与空列表；`GET /api/me`返回200并下发CSRF令牌；初始管理员登录返回200；重启后迁移全部跳过、管理员不重复创建。
+- 临时独立MySQL 8.4.13空库（`campus_v2_check`）启动：V1—V5升级全部应用；`GET /api/health`返回200且`schema`为V5；`GET /api/items`返回200与空列表；`GET /api/me`返回200并下发CSRF令牌；初始管理员登录返回200；重启后升级全部跳过、管理员不重复创建。
 - 临时实例验证后已停止并删除数据目录；未连接本机3306实例或既有数据库。
 - 未执行两个MySQL集成用例、容器镜像构建、前端联调与阶段验收。
 
@@ -104,4 +104,4 @@ powershell -ExecutionPolicy Bypass -File implementation\build.ps1
 
 ## 本地启动补充
 
-复制仓库根目录.env.local.example为.env.local并填写数据库及初始管理员；容器使用implementation/.env，二者用途不同。先在implementation/frontend运行npm ci及npm run build，再运行implementation/build.ps1，最后双击implementation/start.cmd。前端serve.mjs由Node运行，静态资源来自dist，/api同源代理到后端。
+复制implementation/.env.local.example为仓库根目录.env.local并填写数据库及初始管理员；容器使用implementation/.env，二者用途不同。先在implementation/frontend运行npm ci及npm run build，再运行implementation/build.ps1，最后双击implementation/start.cmd。前端serve.mjs由Node运行，静态资源来自dist，/api同源代理到后端。单独启动前端时可使用implementation/scripts/start-frontend.cmd。

@@ -1018,7 +1018,7 @@ paths:
       description: |
         kind及字段见《接口与关键设计.md》的管理动作表。统一必填reason，去空白后最多1500个UTF-16代码单元。
         物品审核需当前version；认证审核按申请id定位，不接收version作为审核条件。
-        V6迁移将认证及物品审核原因列扩容到1500，合法输入完整保存；通知可使用摘要。
+        V6升级将认证及物品审核原因列扩容到1500，合法输入完整保存；通知可使用摘要。
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: kind

@@ -96,7 +96,7 @@ class MarketMySqlIT {
             }
         }
         var migrations = db.list("select version from schema_migrations order by version", p());
-        assertTrue(migrations.size() >= 2, "迁移应可在 MySQL 上执行并记录版本");
+        assertTrue(migrations.size() >= 2, "升级应可在 MySQL 上执行并记录版本");
         assertEquals(1, n(migrations.get(0), "version"));
     }
 

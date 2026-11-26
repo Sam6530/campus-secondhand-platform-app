@@ -13,9 +13,9 @@
 | 治理 | 商品与认证审核、举报、履约争议与补证、隐藏、统计 | `MarketService`、`AdminController`、`CommunityController` |
 | 社区数据 | 收藏、成交评价、卖方评价、物品咨询与订单沟通 | `CommunityController`、`MarketService` |
 | 通知与审计 | 事务内写待投递通知，提交后投递；关键动作写审计 | `NotificationDelivery`、`MarketService` |
-| 图片与健康检查 | 认证材料与物品图片上传、按对象授权读取；运行与迁移状态 | `AssetController`、`ImageGuard`、`HealthController` |
+| 图片与健康检查 | 认证材料与物品图片上传、按对象授权读取；运行与升级状态 | `AssetController`、`ImageGuard`、`HealthController` |
 
-共 19 个 Java 类：13 个交易数据与基础设施类，6 个身份治理类。迁移脚本 V1–V5 覆盖空库基线、查询索引、提交意图回执、并发丢更新防护和事务性通知。
+共 19 个 Java 类：13 个交易数据与基础设施类，6 个身份治理类。升级脚本 V1–V5 覆盖空库基线、查询索引、提交意图回执、并发丢更新防护和事务性通知。
 
 ## 2 代码结构
 
@@ -24,7 +24,7 @@ src/main/java/cn/campus
 ├─ MarketApplication.java   启动入口
 ├─ MarketService.java       交易、治理、社区与统计的业务实现
 ├─ Store.java / SqlMapper.java   参数化查询与固定 SQL 映射
-├─ SchemaMigrator.java      迁移执行、校验和与 schema_migrations
+├─ SchemaMigrator.java      升级执行、校验和与 schema_migrations
 ├─ *Controller.java         物品、订单、图片、健康检查、身份、管理、社区接口
 ├─ ApiError.java            统一错误响应
 ├─ WebConfig.java           安全响应头与写请求 CSRF 校验
@@ -52,9 +52,9 @@ src/main/resources/db/migration/V1–V5.sql
 | `BOOTSTRAP_ADMIN_USERNAME` / `_PASSWORD` / `_NICKNAME` | 空 / 空 / `校园管理员` | 空库时创建初始管理员；密码需至少 12 位并含字母和数字 |
 | `UPLOAD_DIR` | `./data/uploads` | 上传文件目录，相对后端工作目录 |
 | `SESSION_COOKIE_SECURE` | `false` | HTTPS 交付时设为 true |
-| `MIGRATION_LOCATIONS` | `classpath:db/migration` | 迁移脚本位置 |
+| `MIGRATION_LOCATIONS` | `classpath:db/migration` | 升级脚本位置 |
 
-数据库需使用 `utf8mb4` / `utf8mb4_0900_ai_ci`。空库首次启动会依次执行 V1–V5；每个脚本的 SHA-256 记录在 `schema_migrations`，已执行脚本不可修改，结构变化新增版本号。`GET /api/health` 返回数据库类型、迁移版本和运行状态。
+数据库需使用 `utf8mb4` / `utf8mb4_0900_ai_ci`。空库首次启动会依次执行 V1–V5；每个脚本的 SHA-256 记录在 `schema_migrations`，已执行脚本不可修改，结构变化新增版本号。`GET /api/health` 返回数据库类型、升级版本和运行状态。
 
 ## 4 构建与启动
 
