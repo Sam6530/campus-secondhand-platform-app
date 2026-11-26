@@ -40,7 +40,7 @@ class Client{
 }
 const key=()=>`http-${crypto.randomUUID()}`;
 (async()=>{try{
- await start();passed.push('独立MySQL真实应用启动，V1/V2/V3迁移校验成功');
+ await start();passed.push('独立MySQL真实应用启动，V1/V2/V3升级校验成功');
  const suffix=Date.now().toString(36),admin=new Client(),seller=new Client(),buyer=new Client(),outsider=new Client();
  const adminName='admin_'+suffix,sellerName='seller_'+suffix,buyerName='buyer_'+suffix;
  await admin.register(adminName);await seller.register(sellerName);await buyer.register(buyerName);await outsider.register('other_'+suffix);
@@ -89,7 +89,7 @@ const key=()=>`http-${crypto.randomUUID()}`;
  assert.equal((await again.request('/orders/'+order.id+'/details')).order.stage,'已完成');
  assert.equal(sql('SELECT GROUP_CONCAT(CONCAT(version,":",checksum) ORDER BY version) FROM schema_migrations;'),snapshot);
  await buyer.request('/auth/logout',{method:'POST',body:{}}).catch(()=>{});
- passed.push('应用重启后凭据和订单保留，迁移校验及记录不重复');
+ passed.push('应用重启后凭据和订单保留，升级校验及记录不重复');
  fs.writeFileSync(path.join(evidence,'http-mysql-results.json'),JSON.stringify({date:'2026-11-26',database:'MySQL 8.0.39 / '+database,port,scope:'真实HTTP、Session、CSRF、独立MySQL、实际图片上传；不使用API替身',passed,orderId:order.id,itemId:item.id,databaseState:state},null,2));
  fs.appendFileSync(credentialPath,`SELFTEST_ADMIN_USERNAME=${adminName}\nSELFTEST_BUYER_USERNAME=${buyerName}\nSELFTEST_USER_PASSWORD=SelftestPassword123!\n`);
  console.log(JSON.stringify({passed,orderId:order.id,itemId:item.id},null,2));

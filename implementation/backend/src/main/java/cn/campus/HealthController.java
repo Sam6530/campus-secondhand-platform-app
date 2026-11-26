@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 运行健康检查：供部署方确认应用、数据库连接与迁移版本。
+ * 运行健康检查：供部署方确认应用、数据库连接与升级版本。
  * 不返回主机、账号、连接串或凭据；数据库不可用时返回 503。
  */
 @RestController

@@ -2,9 +2,26 @@
 // 合法时间的解析一致性由后端 #11 修复；前端不以此替代后端对 Z / +08:00 写法的处理。
 
 const ISO_MS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/;
+const DATE_HEAD = /^(\d{4})-(\d{2})-(\d{2})/;
+
+function daysInMonth(year, month) {
+  if (month === 2) return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28;
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+}
+
+// 原输入中的年-月-日必须真实存在。Date 会把 2026-02-30 归一化成 3 月 2 日，
+// 直接把归一化后的时刻当作查询条件会静默扩大或移动统计区间。
+export function calendarDateExists(value) {
+  const m = DATE_HEAD.exec(String(value));
+  if (!m) return true; // 非“YYYY-MM-DD”前缀的写法交由 Date 解析结果判定
+  const year = Number(m[1]), month = Number(m[2]), day = Number(m[3]);
+  if (month < 1 || month > 12) return false;
+  return day >= 1 && day <= daysInMonth(year, month);
+}
 
 export function parseTime(value) {
   if (value == null || value === '') return null;
+  if (!calendarDateExists(value)) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
 }

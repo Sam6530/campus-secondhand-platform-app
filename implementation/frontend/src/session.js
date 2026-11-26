@@ -20,15 +20,17 @@ export function emptyPrivate() {
   };
 }
 
-// 只比较身份字段；同一账号刷新资料不触发清理。
+// Permission changes invalidate private drafts and outstanding responses too.
+function identity(user) {
+  return JSON.stringify([user?.id||null,user?.role||null,Number(user?.verified||0),Number(user?.restricted||0)]);
+}
 export function accountChanged(before, after) {
-  const a = before && before.id, b = after && after.id;
-  return a !== b;
+  return identity(before)!==identity(after);
 }
 
 // 异步响应是否仍属于当前账户（响应返回前换号则丢弃，不回填）。
 export function sameAccount(before, current) {
-  return (before && before.id || null) === (current && current.id || null);
+  return !accountChanged(before,current);
 }
 
 // 旧请求在会话失效（401/403）后经 /me 获得的身份与发起时不同 → 丢弃旧响应。

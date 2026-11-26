@@ -7,9 +7,12 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { acquire, settle, peek, newKey, readIntents, classify, settleIfApplied, clearScope } from '../src/intent.js';
 import { enterAction, composing, composeAction } from '../src/iam.js';
-import { orderDetails, reviewRows, canReview, alreadyReviewed, addReview, actionsFor, showConfirmReceived, governanceOrderId } from '../src/orders.js';
+import { orderDetails, reviewRows, canReview, alreadyReviewed, addReview, actionsFor, showConfirmReceived, governanceOrderId, reviewStatus, reviewIntent } from '../src/orders.js';
+import { afterSignIn } from '../src/auth.js';
+import { pagingView, pageParams } from '../src/paging.js';
 import { itemError, itemBody, priceError } from '../src/identity.js';
 import { emptyPrivate, accountChanged, staleFor, verifyAction, favoriteView } from '../src/session.js';
+import { api } from '../src/api.js';
 import { statsQuery } from '../src/stats.js';
 import { evidenceLog, authorLabel, evidenceView } from '../src/evidence.js';
 
@@ -157,7 +160,8 @@ await test('买方确认后真实刷新为已完成；卖方只有登记交付�
   const done = { ...delivered, stage: '已完成' };
   assert.deepEqual(actionsFor(done, seller), []);
   assert.deepEqual(actionsFor(done, buyer), []);
-  assert.deepEqual(actionsFor({ ...delivered, disputed: 1 }, buyer), []);
+  assert.deepEqual(actionsFor({ ...delivered, disputed: 1 }, seller), []);
+  assert.deepEqual(actionsFor({ ...delivered, disputed: 0 }, buyer), ['confirm']);
   assert.deepEqual(actionsFor({ ...delivered, stage: '待交付' }, seller), ['deliver', 'cancel']);
   assert.deepEqual(actionsFor(delivered, { id: 'x' }), []);
 });
@@ -453,6 +457,173 @@ await test('我的订单与管理台争议卡都渲染 evidence_log（补证人+
   const admin = src.slice(at, src.indexOf('</template>', at));
   assert.ok(admin.includes('d.evidence_log') && admin.includes('userLabel(e.author_id)') && admin.includes('{{ date(e.created_at) }}'), '管理台显示补证作者与时间');
   assert.ok(admin.includes('d.evidence') && admin.includes('原始证据'), '管理台原始证据仍单独可见');
+});
+
+
+await test('权限变化失效，昵称更新及匿名刷新不误清', () => {
+  const current={id:'u',role:'USER',verified:1,restricted:0};
+  for(const next of [{...current,role:'ADMIN'},{...current,verified:0},{...current,restricted:1}]) assert.ok(accountChanged(current,next));
+  assert.ok(!accountChanged(current,{...current,nickname:'新昵称'}));
+  assert.ok(!accountChanged(null,undefined));
+});
+
+await test('非法JSON成功响应保持结果未知，不释放意图键', async () => {
+  const previous=globalThis.fetch;
+  try {
+    globalThis.fetch=async()=>({ok:true,status:200,json:async()=>{throw new SyntaxError('invalid JSON')}});
+    await assert.rejects(api('/items','POST',{}),error=>error.protocol===true && !error.status);
+  } finally {globalThis.fetch=previous;}
+});
+
+// ---------------- V3 问题回归：#10 #15 #16 #17 #18 #19 ----------------
+
+await test('#16 争议受理中的待买方确认订单保留买方确认入口，其余角色与阶段不放宽', () => {
+  const seller = { id: 's' }, buyer = { id: 'b' };
+  const delivered = { id: 'o1', stage: '待买方确认', seller_id: 's', buyer_id: 'b', disputed: 1 };
+  assert.deepEqual(actionsFor(delivered, buyer), ['confirm'], '买方本人确认收到仍是争议单的完成出口');
+  assert.equal(showConfirmReceived(delivered, buyer), true);
+  assert.deepEqual(actionsFor(delivered, seller), [], '卖方不得代确认或提醒');
+  assert.deepEqual(actionsFor({ ...delivered, disputed: '1' }, buyer), ['confirm'], '字符串标记同样识别为争议中');
+  assert.deepEqual(actionsFor({ ...delivered, disputed: true }, buyer), ['confirm']);
+  assert.deepEqual(actionsFor({ ...delivered, stage: '待交付' }, buyer), [], '争议中不得普通取消');
+  assert.deepEqual(actionsFor({ ...delivered, stage: '待卖方确认' }, buyer), []);
+  assert.deepEqual(actionsFor({ ...delivered, stage: '已完成' }, buyer), []);
+  assert.deepEqual(actionsFor(delivered, { id: 'other' }), [], '非当事人无动作');
+  assert.deepEqual(actionsFor({ ...delivered, disputed: 0 }, buyer), ['confirm']);
+});
+
+await test('#17 评价入口区分未加载、未评价与已评价，未加载不直接放行', () => {
+  const order = { id: 'o1', stage: '已完成', buyer_id: 'b', seller_id: 's' };
+  const me = { id: 'b' };
+  assert.equal(reviewStatus(order, undefined, me), 'unknown', '详情未加载不能当作未评价');
+  assert.equal(reviewIntent('unknown'), 'load', '未知时先加载详情');
+  assert.equal(reviewStatus(order, [], me), 'pending');
+  assert.equal(reviewIntent('pending'), 'form');
+  assert.equal(reviewStatus(order, [{ author_id: 's' }], me), 'pending', '对方已评不影响本人资格');
+  assert.equal(reviewStatus(order, [{ author_id: 'b' }], me), 'done');
+  assert.equal(reviewIntent('done'), 'already');
+  assert.equal(reviewStatus(order, undefined, me, { o1: 'b' }), 'done', '本会话提交标记优先');
+  assert.equal(reviewStatus({ ...order, stage: '待买方确认' }, [], me), 'not-applicable');
+  assert.equal(reviewIntent('not-applicable'), 'ignore');
+  // 详情加载失败后仍是 unknown：只能提示，不得打开评价表单
+  assert.equal(reviewIntent(reviewStatus(order, undefined, me)), 'load');
+  const src = appSrc();
+  assert.ok(src.includes("reviewState(o)==='pending'"), '入口只在已加载且未评价时显示');
+  assert.ok(!src.includes('!hasReviewed(o)'), '不再把未加载当作未评价');
+  assert.ok(src.includes('await loadDetails(o,actor)'), '未知状态先加载订单详情');
+  assert.ok(src.includes('评价状态加载中'), '未知状态显示加载入口而不是评价入口');
+  assert.ok(src.includes("if(step()!=='form')"), '加载后仍无法确认时不打开表单');
+});
+
+await test('#10 登录与注册成功后先刷新私有数据、再加载市场，各一次', async () => {
+  const calls = [];
+  const outcome = await afterSignIn({
+    userId: { id: 'u1' },
+    refresh: async () => { calls.push('refresh'); },
+    market: async () => { calls.push('market'); },
+  });
+  assert.deepEqual(calls, ['refresh', 'market'], '顺序固定且各一次');
+  assert.equal(outcome.privateOk, true);
+  assert.equal(outcome.marketOk, true);
+});
+
+await test('#10 私有刷新失败仍加载市场；市场失败不掩盖私有刷新成功', async () => {
+  const calls = [];
+  const privateFail = await afterSignIn({
+    userId: { id: 'u1' },
+    refresh: async () => { calls.push('refresh'); throw new Error('资料失败'); },
+    market: async () => { calls.push('market'); },
+  });
+  assert.deepEqual(calls, ['refresh', 'market'], '私有刷新失败后市场仍要加载');
+  assert.equal(privateFail.privateOk, false);
+  assert.equal(privateFail.marketOk, true);
+  assert.equal(privateFail.privateError.message, '资料失败');
+  const marketFail = await afterSignIn({
+    userId: { id: 'u1' },
+    refresh: async () => {},
+    market: async () => { throw new Error('市场失败'); },
+  });
+  assert.equal(marketFail.privateOk, true);
+  assert.equal(marketFail.marketOk, false);
+  assert.equal(marketFail.marketError.message, '市场失败');
+});
+
+await test('#10 已登录刷新不重复拉市场；退出与空列表时重新加载公开市场', () => {
+  const src = appSrc();
+  const refreshBlock = src.slice(src.indexOf('async function refresh('), src.indexOf('async function refreshAfterWrite'));
+  assert.ok(!refreshBlock.includes('market('), '资料刷新不重复请求市场');
+  const authBlock = src.slice(src.indexOf('async function authenticate('), src.indexOf('async function logout('));
+  assert.ok(authBlock.includes('afterSignIn({userId:data.user,refresh,market})'), '登录与注册走同一刷新顺序');
+  assert.ok(!authBlock.includes('await refresh(data.user)'), '不再只刷新私有数据');
+  assert.ok(src.includes("api('/auth/'+mode"), '登录与注册共用认证入口');
+  const logoutBlock = src.slice(src.indexOf('async function logout('), src.indexOf('function goVerify('));
+  assert.ok(logoutBlock.includes('items.value=[]') && logoutBlock.includes('await market()'), '退出后重新加载公开市场');
+  assert.ok(src.includes("next==='market'&&!items.value.length"), '进入发现物品时列表为空才补载');
+});
+
+await test('#15 我的发布分页：越界回到最后有效页，兼容旧数组响应', () => {
+  const rows = Array.from({ length: 20 }, (_, i) => ({ id: 'i' + i }));
+  const first = pagingView({ items: rows, page: 1, size: 20, total: 23, totalPages: 2 }, 1);
+  assert.equal(first.items.length, 20);
+  assert.equal(first.total, 23);
+  assert.equal(first.totalPages, 2);
+  assert.equal(first.page, 1);
+  const last = pagingView({ items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }], page: 2, size: 20, total: 23, totalPages: 2 }, 9);
+  assert.equal(last.page, 2, '请求页越界时显示最后有效页');
+  assert.equal(last.items.length, 3);
+  const empty = pagingView({ items: [], page: 1, size: 20, total: 0, totalPages: 1 }, 1);
+  assert.equal(empty.totalPages, 1);
+  assert.equal(empty.items.length, 0);
+  const legacy = pagingView([{ id: 'x' }], 4);
+  assert.equal(legacy.page, 1, '旧数组响应按单页处理');
+  assert.equal(legacy.totalPages, 1);
+  assert.equal(legacy.legacy, true);
+  assert.deepEqual(pageParams(0, 0), { page: 1, size: 20 }, '页码下限与默认每页');
+  assert.equal(pageParams(2, 999).size, 50, '每页上限');
+  assert.deepEqual(pageParams('x', 'y'), { page: 1, size: 20 });
+  const src = appSrc();
+  assert.ok(src.includes('/items/mine?page='), '我的发布按页请求');
+  assert.ok(src.includes('mineGo(-1)') && src.includes('mineGo(1)'), '上一页与下一页按钮');
+  assert.ok(src.includes('minePage.totalPages'), '显示当前页与总页数');
+  assert.ok(src.includes('pagingView(m,ui2.minePage)'), '分页结果按后端 page 收敛');
+});
+
+await test('#18 不存在的日历日期不生成查询条件，合法日期保持时区转换', () => {
+  for (const bad of ['2026-02-30', '2026-02-30T12:00:00Z', '2026-04-31T00:00', '2025-02-29T08:00:00+08:00']) {
+    const q = statsQuery(bad, '');
+    assert.equal(q.ok, false, bad + ' 必须被拒绝');
+    assert.deepEqual(q.errors, ['成交开始时间格式不正确。']);
+    assert.equal(q.from, '', '不得生成归一化后的查询时间');
+  }
+  assert.equal(statsQuery('2026-02-28', '').ok, true);
+  assert.equal(statsQuery('2024-02-29', '').ok, true, '闰年 2 月 29 日合法');
+  const leap = statsQuery('2024-02-29T00:00', '2024-03-01T00:00');
+  assert.equal(leap.ok, true);
+  assert.equal(leap.from, new Date('2024-02-29T00:00').toISOString());
+  assert.equal(statsQuery('2024-02-30', '').ok, false);
+  assert.deepEqual(statsQuery('', ''), { from: '', to: '', errors: [], ok: true });
+  assert.equal(statsQuery('not-a-date', '').ok, false);
+  assert.equal(statsQuery('2026-02-28T10:00', '2026-02-28T10:00').ok, false, 'from 等于 to 被拒绝');
+  assert.equal(statsQuery('2026-03-01', '2026-02-28').ok, false, 'from 晚于 to 被拒绝');
+  const cross = statsQuery('2026-12-31T23:00', '2027-01-01T01:00');
+  assert.equal(cross.ok, true, '合法的跨月与跨年区间');
+  assert.equal(cross.to, new Date('2027-01-01T01:00').toISOString());
+  const zoned = statsQuery('2026-02-28T23:30:00+08:00', '');
+  assert.equal(zoned.from, new Date('2026-02-28T23:30:00+08:00').toISOString(), '带时区输入保留时区换算');
+});
+
+await test('#19 演示凭据仅显式演示构建输出，密码说明不声称明文保存', () => {
+  const src = appSrc();
+  const expr = src.match(/const DEMO_HINT=import\.meta\.env\.VITE_DEMO_CREDENTIALS==='true'\?('[^']*'):'';/);
+  assert.ok(expr, '演示开关使用构建期常量比较');
+  const build = flag => new Function('env', `return env.VITE_DEMO_CREDENTIALS==='true'?${expr[1]}:'';`)({ VITE_DEMO_CREDENTIALS: flag });
+  assert.equal(build('false'), '', '默认构建不输出演示密码');
+  assert.equal(build(undefined), '');
+  assert.match(build('true'), /Campus123!/, '显式演示配置才输出');
+  assert.ok(src.includes('v-if="DEMO_HINT"'), '按构建开关渲染');
+  assert.ok(!src.includes('首次本地演示账号'), '移除无条件展示文案');
+  assert.ok(src.includes('密码不会自动删除首尾空格，系统仅保存密码哈希；长度为8—72字节。'));
+  assert.ok(!src.includes('密码按原文保存'), '不再声称明文保存密码');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

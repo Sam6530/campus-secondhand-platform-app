@@ -18,7 +18,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
 /**
- * 版本化数据库迁移：按 V{n}__描述.sql 的顺序执行未应用的脚本，并把版本、描述、校验和、
+ * 版本化数据库升级：按 V{n}__描述.sql 的顺序执行未应用的脚本，并把版本、描述、校验和、
  * 应用时间写入 schema_migrations。已应用脚本的内容被修改时启动失败，避免环境之间结构漂移。
  *
  * 空库初始化与后续升级共用同一机制；每次启动不再用 CREATE TABLE IF NOT EXISTS 猜测结构。
@@ -59,12 +59,12 @@ public class SchemaMigrator implements ApplicationRunner {
                     String checksum = applied.get(s.version);
                     if (checksum != null) {
                         if (!checksum.equals(s.checksum))
-                            throw new IllegalStateException("迁移 V" + s.version + " 已执行，但文件内容被修改。"
+                            throw new IllegalStateException("升级 V" + s.version + " 已执行，但文件内容被修改。"
                                     + "请恢复原脚本并新增 V" + (maxVersion(applied) + 1) + " 完成升级。");
-                        log.info("迁移 V{} 已应用，跳过（{}）", s.version, s.description);
+                        log.info("升级 V{} 已应用，跳过（{}）", s.version, s.description);
                         continue;
                     }
-                    log.info("执行迁移 V{} · {}", s.version, s.description);
+                    log.info("执行升级 V{} · {}", s.version, s.description);
                     try (Statement st = c.createStatement()) {
                         for (String sql : split(s.body))
                             st.execute(sql);
@@ -126,10 +126,10 @@ public class SchemaMigrator implements ApplicationRunner {
                 String name = r.getFilename();
                 Matcher m = NAME.matcher(name == null ? "" : name);
                 if (!m.matches())
-                    throw new IllegalStateException("迁移文件命名无效（应为 V{n}__描述.sql）：" + name);
+                    throw new IllegalStateException("升级文件命名无效（应为 V{n}__描述.sql）：" + name);
                 long version = Long.parseLong(m.group(1));
                 if (!versions.add(version))
-                    throw new IllegalStateException("迁移版本 V" + version + " 重复配置。");
+                    throw new IllegalStateException("升级版本 V" + version + " 重复配置。");
                 String body;
                 try (var in = r.getInputStream()) {
                     body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
@@ -139,7 +139,7 @@ public class SchemaMigrator implements ApplicationRunner {
         }
         found.sort(Comparator.comparingLong(Script::version));
         if (found.isEmpty())
-            throw new IllegalStateException("未找到任何迁移脚本，请检查 app.migration.locations=" + locations);
+            throw new IllegalStateException("未找到任何升级脚本，请检查 app.migration.locations=" + locations);
         return found;
     }
 
@@ -154,7 +154,7 @@ public class SchemaMigrator implements ApplicationRunner {
     }
 
     /**
-     * 按分号拆分语句，忽略字符串字面量与注释中的分号。迁移脚本只包含 DDL，不支持存储过程。
+     * 按分号拆分语句，忽略字符串字面量与注释中的分号。升级脚本只包含 DDL，不支持存储过程。
      */
     static List<String> split(String script) {
         List<String> out = new ArrayList<>();

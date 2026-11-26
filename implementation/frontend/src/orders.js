@@ -58,17 +58,44 @@ export function alreadyReviewed(order, reviews, me, marked) {
   return !!(marked && marked[order.id] === me.id);
 }
 
+// 点击评价入口后的处理：已评价只提示；状态未知先加载详情；只有确定未评价才打开表单。
+export function reviewIntent(status) {
+  if (status === 'done') return 'already';
+  if (status === 'unknown') return 'load';
+  if (status === 'pending') return 'form';
+  return 'ignore';
+}
+
+// 评价入口的三种状态：unknown（订单已完成，但评价明细尚未加载）、pending（已加载且本人未评）、
+// done（已评价，含本会话提交标记）、not-applicable（未完成订单）。
+// “尚未加载”不能当成“尚未评价”，否则刷新后会短暂露出已评订单的评价入口。
+export function reviewStatus(order, reviews, me, marked) {
+  if (!order || !me) return 'not-applicable';
+  if (order.stage !== '已完成') return 'not-applicable';
+  if (marked && marked[order.id] === me.id) return 'done';
+  if (!Array.isArray(reviews)) return 'unknown';
+  return alreadyReviewed(order, reviews, me, marked) ? 'done' : 'pending';
+}
+
 export function addReview(reviews, review) {
   const next = (reviews || []).slice();
   if (!next.some(r => r.author_id === review.author_id)) next.push(review);
   return next;
 }
 
-// 当前可执行动作，仅由阶段、争议与卖家身份决定；登记交付后不显示任何“完成”改字入口。
+// 0/1、true/false 都表示争议受理中；"0"/"1" 也按数值解释，避免字符串 "0" 被当作真值。
+function disputed(order) {
+  const v = order && order.disputed;
+  return v === true || v === 1 || v === '1';
+}
+
+// 当前可执行动作，由阶段、争议、当事人身份与卖家身份共同决定。
+// 争议受理保留订单原阶段与占用：接单、拒单、登记交付、普通取消仍被拒绝；
+// 已登记交付且处于“待买方确认”时，买方本人确认收到仍是该单完成与争议结案的唯一出口（BR19）。
 export function actionsFor(order, me) {
   if (!order || !me || !isParty(order, me)) return [];
   const seller = order.seller_id === me.id;
-  if (order.disputed) return [];
+  if (disputed(order)) return order.stage === '待买方确认' && !seller ? ['confirm'] : [];
   if (order.stage === '待卖方确认') return seller ? ['accept', 'reject'] : ['cancel'];
   if (order.stage === '待交付') return seller ? ['deliver', 'cancel'] : ['cancel'];
   if (order.stage === '待买方确认') return seller ? (order.reminded ? [] : ['remind']) : ['confirm'];

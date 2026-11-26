@@ -1,6 +1,7 @@
 server:
-  address: ${SERVER_ADDRESS:127.0.0.1}
-  port: ${PORT:18080}
+  # SERVER_PORT 与 PORT 均可覆盖；默认端口与 implementation/run-local.ps1 一致。
+  address: ${SERVER_ADDRESS:0.0.0.0}
+  port: ${SERVER_PORT:${PORT:18080}}
   # 由 A 的反向代理转发 X-Forwarded-* 时，按外部协议与主机生成响应与安全 Cookie 判断。
   forward-headers-strategy: framework
   servlet:
@@ -14,9 +15,10 @@ server:
 spring:
   datasource:
     # 只使用 MySQL 8.4；连接失败直接启动失败，不提供其他数据库回退。
-    # 建库、账号与验证见 docs/database/mysql.md。
+    # 建库、账号与验证见 implementation/backend/README.md。
     url: "${DB_URL:jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:campus}?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&allowPublicKeyRetrieval=true&useSSL=false}"
-    username: ${DB_USER:campus}
+    # DB_USERNAME 与 DB_USER 均可覆盖，兼容实现工程既有启动脚本。
+    username: ${DB_USERNAME:${DB_USER:campus}}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
@@ -43,3 +45,7 @@ app:
     password: ${BOOTSTRAP_ADMIN_PASSWORD:}
     nickname: ${BOOTSTRAP_ADMIN_NICKNAME:校园管理员}
 
+logging:
+  level:
+    root: INFO
+    cn.campus: INFO

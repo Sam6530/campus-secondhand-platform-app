@@ -6,10 +6,20 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const helpers = ['api.js', 'intent.js', 'iam.js', 'orders.js', 'identity.js', 'session.js', 'stats.js', 'evidence.js'];
+const helpers = ['api.js', 'intent.js', 'iam.js', 'orders.js', 'identity.js', 'session.js', 'stats.js', 'evidence.js', 'auth.js', 'paging.js'];
 const dir = mkdtempSync(join(tmpdir(), 'campus-fe-'));
 const out = [];
 let failed = 0;
+
+const htmlEntry = readFileSync(join(root, 'index.html'), 'utf8');
+if (/^\s*<!doctype html>/i.test(htmlEntry)) out.push('OK index.html uses HTML5 doctype');
+else { failed++; out.push('FAIL index.html is missing HTML5 doctype'); }
+if (/<meta\s+name=["']viewport["'][^>]*content=["'][^"']*width=device-width/i.test(htmlEntry)) {
+  out.push('OK index.html declares a device-width viewport');
+} else {
+  failed++;
+  out.push('FAIL index.html is missing a device-width viewport');
+}
 
 for (const h of helpers) {
   writeFileSync(join(dir, h), readFileSync(join(root, 'src', h)));
@@ -27,7 +37,7 @@ writeFileSync(join(dir, 'vue.js'), 'export const reactive=(o)=>o;export const co
 const vue = readFileSync(join(root, 'src', 'App.vue'), 'utf8');
 const script = vue.match(/<script setup>([\s\S]*?)<\/script>/)[1];
 const template = vue.match(/<template>([\s\S]*)<\/template>/)[1];
-const noVue = script.replace(/import \{[^}]+\} from 'vue';/, "import { reactive, computed, onMounted, onUnmounted } from './vue.js';");
+const noVue = script.replace(/import \{[^}]+\} from 'vue';/, "import { reactive, computed, onMounted, onUnmounted } from './vue.js';").replace(/import\.meta\.env/g, '({})');
 writeFileSync(join(dir, 'App.mjs'), noVue.replace(/from '\.\/([\w]+)';/g, "from './$1.js'"));
 try {
   await import(pathToFileURL(join(dir, 'App.mjs')).href);

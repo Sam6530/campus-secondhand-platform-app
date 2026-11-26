@@ -1,6 +1,7 @@
 # 构建产物与本机运行文件不入库
 implementation/backend/target/
 implementation/backend/var/
+implementation/backend/data/
 implementation/backend/*.log
 implementation/frontend/node_modules/
 implementation/frontend/dist/

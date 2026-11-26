@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "root_env_loaded": true,
+  "frontend_and_assets": true,
+  "proxy_login_and_order": true,
+  "csrf_enforced": true,
+  "missing_asset_404": true,
+  "upstream_failure_503": true,
+  "stopped": true
+}

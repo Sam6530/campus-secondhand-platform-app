@@ -31,6 +31,9 @@ public class MarketService {
     final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
     static final Set<String> ACTIVE = Set.of("待卖方确认", "待交付", "待买方确认");
     static final Set<String> CATEGORIES = Set.of("教材书籍", "数码配件", "宿舍生活", "运动户外", "其他");
+    /** “我的发布”分页：默认每页 20 条，单页上限 50 条，避免一次读出全部历史记录。 */
+    static final int MINE_DEFAULT_SIZE = 20;
+    static final int MINE_MAX_SIZE = 50;
 
     MarketService(Store db, ObjectMapper json, NotificationDelivery notices) {
         this.db = db;
@@ -260,9 +263,20 @@ public class MarketService {
                 .map(this::maskPublicItem).toList();
     }
 
-    public List<Map<String, Object>> mine(String uid) {
+    /**
+     * 我的发布（含历史状态）：按创建时间倒序分页。
+     * 页码小于 1 按第 1 页处理，超出总页数收敛到最后有效页；每页默认 20 条、上限 50 条。
+     */
+    public Map<String, Object> mine(String uid, int page, int size) {
         account(uid);
-        return db.list("select * from items where seller_id=#{p.u} order by created_at desc", p("u", uid));
+        int pageSize = Math.min(MINE_MAX_SIZE, Math.max(1, size <= 0 ? MINE_DEFAULT_SIZE : size));
+        long total = Long.parseLong(s(db.one("select count(*) as c from items where seller_id=#{p.u}", p("u", uid)), "c"));
+        int totalPages = (int) Math.max(1, (total + pageSize - 1) / pageSize);
+        int current = Math.min(totalPages, Math.max(1, page));
+        var items = db.list(
+                "select * from items where seller_id=#{p.u} order by created_at desc, id desc limit #{p.limit} offset #{p.offset}",
+                p("u", uid, "limit", pageSize, "offset", (current - 1) * pageSize));
+        return p("items", items, "page", current, "size", pageSize, "total", total, "totalPages", totalPages);
     }
 
     public List<Map<String, Object>> orders(String uid) {
@@ -565,6 +579,9 @@ public class MarketService {
     public void review(String uid, String oid, Map<String, Object> b) {
         var o = lockOrder(uid, oid, false);
         require(s(o, "stage").equals("已完成"), "仅完成订单可评价。");
+        // 数据库唯一约束 (order_id, author_id) 是最终防线；业务层先返回明确的冲突响应。
+        if (db.one("select id from reviews where order_id=#{p.o} and author_id=#{p.u}", p("o", oid, "u", uid)) != null)
+            throw new ApiError(409, "本单已评价，不能重复评价。");
         int score;
         try {
             score = Integer.parseInt(s(b, "score"));
@@ -583,14 +600,15 @@ public class MarketService {
 
     /**
      * 卖方公开评价：读取时再次脱敏联系方式（含历史记录），治理隐藏的评价不返回；
-     * 返回 author_id 便于前端区分本人评价。
+     * 公开投影不返回订单或账号关联编号；当事人另从本人订单查询。
      */
     public List<Map<String, Object>> reviews(String seller) {
         account(seller);
         return db.list(
-                "select r.id,r.order_id,r.author_id,r.score,r.content,r.created_at,a.nickname from reviews r join accounts a on a.id=r.author_id join orders o on o.id=r.order_id where r.target_id=#{p.u} and o.seller_id=#{p.u} and r.hidden=0 order by r.created_at desc",
+                "select r.id,r.score,r.content,r.created_at,a.nickname from reviews r join accounts a on a.id=r.author_id join orders o on o.id=r.order_id where r.target_id=#{p.u} and o.seller_id=#{p.u} and r.hidden=0 order by r.created_at desc",
                 p("u", seller)).stream().map(r -> {
                     r.put("content", images.mask(s(r, "content")));
+                    r.put("nickname", images.mask(s(r, "nickname")));
                     return r;
                 }).toList();
     }
@@ -847,12 +865,13 @@ public class MarketService {
      * 因此本项目（课程规模，已完成订单为千条量级）读取已完成订单的完成时刻与快照金额，
      * 在 Java 中用 Instant 精确比较完成时刻、用 BigDecimal 汇总快照金额；不落库改写旧时间，
      * 也不对原始 ISO 字符串做排序比较（包括不以字符串条件预筛，避免任何依赖书写格式的边界）。
-     * 若数据量增长，可另做保留纳秒的时间类型迁移（列类型迁移，非字符串排序）。
+     * 若数据量增长，可另做保留纳秒的时间类型升级（列类型升级，非字符串排序）。
      */
     public Map<String, Object> statistics(String uid, String from, String to) {
         admin(uid);
         Instant lower = from.isBlank() ? null : instant(from.trim(), "开始时间");
         Instant upper = to.isBlank() ? null : instant(to.trim(), "结束时间");
+        require(lower == null || upper == null || lower.isBefore(upper), "开始时间必须早于结束时间。");
         String sql = "select price,completed_at,created_at from orders where stage='已完成'";
         // 只取需要的三列：旧库可能有更大列或后续新增列，避免一次读出全部宽行。
         int count = 0;
@@ -954,7 +973,7 @@ public class MarketService {
                     db.exec("update accounts set verified=1 where id=#{p.id}", p("id", v.get("user_id")));
                 }
                 db.exec("update verifications set status=#{p.s},reason=#{p.r} where id=#{p.id}",
-                        p("s", pass ? "通过" : "退回", "r", clip(reason, 1000), "id", obj));
+                        p("s", pass ? "通过" : "退回", "r", reason, "id", obj));
                 fact(uid, actor, "VERIFICATION", obj, "认证审核", pass ? "通过" : "退回", "待审", pass ? "通过" : "退回",
                         null, reason);
                 notify("verification:" + obj, s(v, "user_id"), "校园认证" + (pass ? "通过" : "退回：" + clip(reason, 1000)));
@@ -966,7 +985,7 @@ public class MarketService {
                 boolean pass = Boolean.TRUE.equals(b.get("pass"));
                 int version = n(i, "version");
                 db.exec("update items set status=#{p.s},reason=#{p.r} where id=#{p.id}",
-                        p("s", pass ? "在售" : "审核退回", "r", clip(reason, 1000), "id", obj));
+                        p("s", pass ? "在售" : "审核退回", "r", reason, "id", obj));
                 fact(uid, actor, "ITEM", obj, "审核版本 v" + version, pass ? "通过" : "退回", "待审",
                         pass ? "在售" : "审核退回", version, reason);
                 notify("item-review:" + obj + ":v" + version, s(i, "seller_id"),
