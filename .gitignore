@@ -1,7 +1,18 @@
+# 构建产物与本机运行文件不入库
+implementation/backend/target/
+implementation/backend/var/
+implementation/backend/*.log
+implementation/frontend/node_modules/
+implementation/frontend/dist/
+implementation/.env
+*.log
+.idea/
+.vscode/
+__pycache__/
+
 node_modules/
 dist/
 .env
 .env.local
 .env.*.local
 test-results/
-*.log
