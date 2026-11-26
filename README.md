@@ -1,20 +1,83 @@
-# 校园二手交易与物品流转平台
+# 校园循环 · 实现阶段独立协作包
 
-本轮沿用原需求重新实施：V1、V2两版实现，V3系统测试。A/B/C实现并自测，D贯穿每版独立验证；各版四名实际成员对同一基线确认通过后进入下一版。工程文档默认全组共同完成，测试及验收材料由D主责。
+本包用于将已完成的需求分析交接到四人实现阶段。将整个目录解压或复制给组员即可；不需要访问原电脑的 C/D 盘目录。所有当前协作说明均使用包内相对路径。
 
-开工前的文档已整理为一套评审稿。先从[工程文档入口](documents/README.md)阅读，再查看[架构讨论稿](documents/design/架构设计_讨论稿.md)、[阶段计划](documents/stages/阶段计划.md)及[18项任务](documents/stages/任务索引.md)。原需求原样保留；技术方案的评审记录与实施状态分开维护。
+## 先从这里读
 
-| 成员 | 技术职责 | Skill |
-|---|---|---|
-| A | 前端公共工程、用户交易和社区页面、集成自测 | [A](implementation/skills/campus-resale-a-frontend/SKILL.md) |
-| B | 交易数据、迁移和事务并发；收藏、评价信誉、统计及通知后端 | [B](implementation/skills/campus-resale-b-transaction/SKILL.md) |
-| C | 身份会话、认证审核、治理争议、聊天后端与管理页面 | [C](implementation/skills/campus-resale-c-governance/SKILL.md) |
-| D | 每版独立测试、缺陷复验、测试文档和阶段验收材料 | [D](implementation/skills/campus-resale-d-verification/SKILL.md) |
+1. [共同协作约定](skills/协作约定.md)：范围、角色边界、接口协作及问题闭环。
+2. 本人角色 skill：
+   - [A · 服务器、公网、DNS、挂载与恢复](skills/campus-a-deploy/SKILL.md)
+   - [B · 后端、MySQL 替换与接口协议](skills/campus-b-backend-mysql/SKILL.md)
+   - [C · Vue 前端与完整操作体验](skills/campus-c-frontend/SKILL.md)
+   - [D · 关键业务审查、冲突检测与独立验收](skills/campus-d-business-review/SKILL.md)
+3. [正式需求正文](requirements/documents/软件工程课程需求报告.md)：FR/UC/BR/ST 和验收标准的依据。
+4. [参考前后端说明](reference-app/README.md)：实际代码、启动方式和已知边界。
 
-项目文件直接放在implementation下；documents集中放需求、设计、阶段、测试及证据。[组织架构](documents/组织架构.md)列目录，[协作流程](documents/协作流程.md)说明main、v1/v2/v3与个人任务分支的合并方式。
+## 目录与路径口径
 
-初始化时把自己的Skill交给Agent，并说明：
+```text
+本包/
+├─ README.md                       本入口
+├─ skills/                         当前实现阶段协作约定与 ABCD skill
+├─ reference-app/                  已完成的参考前后端，可作为后续开发起点
+│  ├─ frontend/                    Vue 组件、HTML/CSS、请求封装及锁定依赖
+│  ├─ backend/                     Java 后端、SQL、配置与集成测试
+│  │  └─ target/campus-market-1.0.0.jar  已构建可执行版本
+│  ├─ Dockerfile、compose.yml       容器构建和 MySQL 部署配置
+│  ├─ docs/                        接口契约、数据库说明与角色交接
+│  └─ 启动项目.cmd、build.ps1 等     本地启动和源码构建
+├─ requirements/                   原正式需求提交包，完整保留相对引用
+│  ├─ documents/                   三份正式报告的 MD、DOCX、PDF
+│  ├─ attachments/                 业务规则、模型、旧原型、验证及证据
+│  └─ initialization/              需求阶段历史约定，非本阶段分工
+├─ evidence/                       参考实现已有的测试结果与页面截图
+└─ 文件清单.json                   包内文件大小与 SHA-256
+```
 
-> 我负责A（替换为自己的角色）。请读取本项目共同协作约定、对应Skill及工程文档入口。先核对当前版本和任务准入，给出与我相关的方案意见、依赖和需要协商的问句。文档供全组评审；进入实现时按已批准任务执行，并同步契约、自测和交接材料。
+角色 skill 内的 `backend/`、`frontend/`、`docs/` 和脚本路径相对 `reference-app/`。例如 B 后续维护的接口契约放在 `reference-app/docs/api/`，D 的台账放在 `reference-app/docs/verification/`。Markdown 链接相对各自所在文件。
 
-当前材料包含沿用的需求、开工前评审稿及四份Skill，后续业务代码直接在implementation内开发。实际运行说明由实现任务落实到implementation/README.md和启动脚本；GitHub各批实际操作仍须用户明确授权。
+## 各角色需要哪些旧材料
+
+| 角色 | 首读内容 | 需要时再读 |
+| --- | --- | --- |
+| A | 需求正文 1.4—1.5、2.6、第6章、8.3；参考项目的 Dockerfile、Compose 和配置 | 质量报告，数据与隐私边界 |
+| B | 需求正文第2—5章、7.1；业务规则和模型说明 | 数据字典、图源、场景与历史反例 |
+| C | 需求正文第2章交互、4章权限、5章状态；当前 Vue 代码 | 旧原型页面、场景操作及页面验证记录 |
+| D | 需求正文 FR/UC/BR/ST、7.1—7.4；质量验证报告 | 场景数据、独立反例、问题复核和总证据索引 |
+
+常用入口：
+
+- [正式提交包说明](requirements/README.md)
+- [业务规则与来源](requirements/attachments/requirements/业务规则与来源.md)
+- [模型解释与状态转换](requirements/attachments/requirements/模型解释与状态转换.md)
+- [场景数据与走查脚本](requirements/attachments/verification/场景数据与走查脚本.md)
+- [质量验证报告](requirements/documents/需求分析质量验证报告.md)
+- [AI智能体使用验证报告](requirements/documents/AI智能体使用验证报告.md)
+- [总证据索引](requirements/attachments/evidence/证据索引.md)
+- [旧需求原型说明](requirements/attachments/prototype/README.md)
+
+完整保留约 10MB 的正式需求包，是为了让报告中的图源、验证、证据与格式附件仍可查阅。旧材料中的作者分工、历史时间和机器路径属于历史记录，不作为当前环境配置，也不要求逐份执行旧角色 skill。当前分工只看本包 `skills/`。
+
+## 试运行参考前后端
+
+需要 Java 17 或更高版本，以及可用的 MySQL 8.4（建库与账号见 `reference-app/docs/database/mysql.md`）。设置 `JAVA_HOME` 或将 Java 加入 PATH，进入 `reference-app/` 双击 `启动项目.cmd`；已有 JAR，无须为首次试运行安装 Node/Maven。也可在 `reference-app/backend/` 执行：
+
+```sh
+java -Dfile.encoding=UTF-8 -jar target/campus-market-1.0.0.jar
+```
+
+访问 `http://127.0.0.1:18080/`。应用只使用 MySQL：`DB_URL`（或 `DB_HOST`/`DB_PORT`/`DB_NAME`）、`DB_USER`、`DB_PASSWORD` 需指向已建好的 `campus` 库；连接失败会直接启动失败，不提供其他数据库回退，`启动项目.cmd` 也不会切换到别的数据库。健康检查 `GET /api/health` 的 `database` 应为 `MySQL`。
+
+本地演示账号为 `buyer`、`buyer2`、`seller`、`admin`，演示密码均为 `Campus123!`。这些账号仅在 MySQL 空库且以 `DEMO_SEED=true` 启动时生成，仅供本地检查；交付环境保持 `DEMO_SEED=false`，由 `BOOTSTRAP_ADMIN_*` 创建正式管理员。
+
+修改源码后的构建需要 JDK 17、Maven 和 Node.js 20.19+，Windows 在 `reference-app/` 执行 `build.ps1`。其他系统按 `reference-app/README.md` 或 Dockerfile 构建。包内启动/构建脚本已去除原电脑固定的 Java、Maven 和 Codex 运行时路径。
+
+数据库只使用 MySQL 8.4：启动时按 `backend/src/main/resources/db/migration/` 的版本化脚本初始化/升级，关闭演示种子时按 `BOOTSTRAP_ADMIN_*` 创建初始管理员；本地演示与交付使用同一套 MySQL 配置，没有 H2 运行方式（`h2` 仅作为自动化测试的 test-scope 依赖，不进入 JAR）。接口契约在 `reference-app/docs/api/`，数据库说明在 `reference-app/docs/database/`，本轮交接在 `reference-app/docs/handoffs/`。真实 MySQL、公网、并发容量与恢复验收仍需 A/B 在目标环境执行，当前 JAR 与自动化测试结果不代表这些环境已通过。
+
+## 发给智能体的任务入口
+
+从本包根目录启动，按角色替换下面的角色字母与 skill 名称即可：
+
+> 你负责本项目实现阶段的 B 角色。先读 `skills/协作约定.md`、`skills/campus-b-backend-mysql/SKILL.md` 和本包 README，再读取其中指定的正式需求及代码。实现项目在 `reference-app/`，正式需求在 `requirements/`。先核对实际输入和未完成项，按角色边界开展工作；不要把旧需求阶段的 ABCD 分工套用到本阶段。
+
+参考实现是本次打包时的代码快照，不带原仓库历史；成员后续应明确共同仓库及版本，不能将参考版本的全部实现记为个人后续贡献。
