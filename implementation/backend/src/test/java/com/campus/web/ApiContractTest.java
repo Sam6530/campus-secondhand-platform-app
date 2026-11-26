@@ -58,7 +58,7 @@ class ApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"))
                 .andExpect(jsonPath("$.database").value("MySQL"))
-                .andExpect(jsonPath("$.schema").value("V1"))
+                .andExpect(jsonPath("$.schema").value("V3"))
                 .andExpect(jsonPath("$.checkedAt").exists());
     }
 
@@ -74,7 +74,7 @@ class ApiContractTest {
     @Test
     @DisplayName("未登录写操作 401 且返回 message，不产生物品")
     void publishRequiresSession() throws Exception {
-        mockMvc.perform(post("/api/items")
+        mockMvc.perform(post("/api/items").with(csrf())
                         .header("Idempotency-Key", "key-http-0001")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(itemBody("接口物品", "19.90")))
@@ -87,7 +87,7 @@ class ApiContractTest {
     @DisplayName("发布缺 Idempotency-Key 返回 400，不产生待审记录")
     void publishRequiresIdempotencyKey() throws Exception {
         TestActors.login(seller.id());
-        mockMvc.perform(post("/api/items")
+        mockMvc.perform(post("/api/items").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(itemBody("接口物品", "19.90")))
                 .andExpect(status().isBadRequest())
@@ -115,7 +115,7 @@ class ApiContractTest {
     @DisplayName("发布成功按 snake_case 返回完整物品，公开卖方引用不是内部主键")
     void publishUsesSnakeCase() throws Exception {
         TestActors.login(seller.id());
-        mockMvc.perform(post("/api/items")
+        mockMvc.perform(post("/api/items").with(csrf())
                         .header("Idempotency-Key", "key-http-0002")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(itemBody("接口物品", "19.90")))
@@ -133,7 +133,7 @@ class ApiContractTest {
     @DisplayName("修改携带过时版本 400，且不覆盖当前内容")
     void staleEditRejected() throws Exception {
         TestActors.login(seller.id());
-        String created = mockMvc.perform(post("/api/items")
+        String created = mockMvc.perform(post("/api/items").with(csrf())
                         .header("Idempotency-Key", "key-http-0003")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(itemBody("接口物品", "19.90")))
@@ -141,7 +141,7 @@ class ApiContractTest {
                 .andReturn().getResponse().getContentAsString();
         String id = com.jayway.jsonpath.JsonPath.read(created, "$.id");
 
-        mockMvc.perform(put("/api/items/" + id)
+        mockMvc.perform(put("/api/items/" + id).with(csrf())
                         .header("Idempotency-Key", "key-http-0004")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -156,7 +156,7 @@ class ApiContractTest {
     @DisplayName("发布缺请求体返回 400（契约要求 body 必填）")
     void publishRequiresBody() throws Exception {
         TestActors.login(seller.id());
-        mockMvc.perform(post("/api/items")
+        mockMvc.perform(post("/api/items").with(csrf())
                         .header("Idempotency-Key", "key-http-0006")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(""))
@@ -169,7 +169,7 @@ class ApiContractTest {
     @DisplayName("图片上传缺表单字段返回 400（不是 500）")
     void uploadMissingPart() throws Exception {
         TestActors.login(seller.id());
-        mockMvc.perform(multipart("/api/assets").param("kind", "ITEM"))
+        mockMvc.perform(multipart("/api/assets").with(csrf()).param("kind", "ITEM"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }
@@ -178,5 +178,12 @@ class ApiContractTest {
         return """
                 {"title":"%s","category":"教材书籍","description":"合成描述","price":"%s","image_id":"%s"}
                 """.formatted(title, price, imageId);
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor csrf() throws Exception {
+        var result=mockMvc.perform(get("/api/me")).andExpect(status().isOk()).andReturn();
+        var session=(org.springframework.mock.web.MockHttpSession)result.getRequest().getSession(false);
+        String token=com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(),"$.csrf");
+        return request->{request.setSession(session);request.addHeader("X-CSRF-Token",token);return request;};
     }
 }

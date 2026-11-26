@@ -4,14 +4,12 @@ import com.campus.shared.auth.ActorContext;
 import com.campus.shared.auth.ActorProvider;
 import jakarta.servlet.http.HttpSession;
 import java.util.Optional;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /** Resolves only the account established by server-side authentication. */
 @Component
-@Primary
 public final class SessionActorProvider implements ActorProvider {
     static final String ACCOUNT_ID = SessionActorProvider.class.getName() + ".account";
 

@@ -38,11 +38,11 @@ class MigrationAndRulesTest {
     @DisplayName("重复执行结构迁移不清数据、不改版本记录")
     void migrationIsRepeatable() {
         int version = migrationRunner.latestAppliedVersion();
-        assertThat(version).isEqualTo(1);
+        assertThat(version).isEqualTo(3);
         Integer before = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM schema_migrations", Integer.class);
         migrationRunner.migrate();
         migrationRunner.migrate();
-        assertThat(migrationRunner.latestAppliedVersion()).isEqualTo(1);
+        assertThat(migrationRunner.latestAppliedVersion()).isEqualTo(3);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM schema_migrations", Integer.class))
                 .isEqualTo(before);
     }
@@ -52,7 +52,7 @@ class MigrationAndRulesTest {
     void healthReportsSchema() {
         ResponseEntity<java.util.Map<String, Object>> response = healthController.health();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).containsEntry("status", "UP").containsEntry("schema", "V1");
+        assertThat(response.getBody()).containsEntry("status", "UP").containsEntry("schema", "V3");
     }
 
     @Test

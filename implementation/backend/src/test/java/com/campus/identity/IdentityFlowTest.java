@@ -48,6 +48,14 @@ class IdentityFlowTest {
         identity.login(Map.of("username","buyer","password"," password "),request);
         assertEquals(buyer,IdentityController.actor(request.getSession()));
     }
+    @Test void frontendIdentityUsesPublicReferenceWhileSessionKeepsInternalId(){
+        String internal=register("public_identity");
+        String external=db.queryForObject("select public_ref from accounts where id=?",String.class,internal);
+        var user=(Map<?,?>)identity.me(request.getSession()).get("user");
+        assertEquals(external,user.get("id"));
+        assertNotEquals(internal,user.get("id"));
+        assertEquals(internal,IdentityController.actor(request.getSession()));
+    }
     @Test void csrfRequiredEvenForLogin() throws Exception {
         request.setMethod("POST");request.setRequestURI("/api/auth/login");
         var response=new MockHttpServletResponse();

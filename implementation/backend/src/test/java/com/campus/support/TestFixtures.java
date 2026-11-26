@@ -82,7 +82,7 @@ public class TestFixtures {
             throw new IllegalStateException("拒绝对非测试库执行清库：" + database
                     + "；请把 DB_URL 指向 campus_resale_selftest，或显式设置 CAMPUS_ALLOW_NON_TEST_DB=true");
         }
-        List<String> tables = List.of("notifications", "notification_outbox", "deliveries", "reservations",
+        List<String> tables = List.of("c_messages", "c_verifications", "c_credentials", "notifications", "notification_outbox", "deliveries", "reservations",
                 "audit_facts", "operation_receipts", "orders", "item_versions", "items", "assets", "accounts");
         for (String table : tables) {
             jdbc.update("DELETE FROM " + table);

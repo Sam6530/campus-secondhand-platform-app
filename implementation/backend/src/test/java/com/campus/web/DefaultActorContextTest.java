@@ -31,17 +31,24 @@ class DefaultActorContextTest {
     void protectedEndpointsRejectAnonymous() throws Exception {
         mockMvc.perform(get("/api/health")).andExpect(status().isOk());
         mockMvc.perform(get("/api/items")).andExpect(status().isOk()).andExpect(jsonPath("$").isArray());
-        mockMvc.perform(post("/api/items")
+        mockMvc.perform(post("/api/items").with(csrf())
                         .header("Idempotency-Key", "key-anon-0001")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").exists());
-        mockMvc.perform(post("/api/orders")
+        mockMvc.perform(post("/api/orders").with(csrf())
                         .header("Idempotency-Key", "key-anon-0002")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/orders")).andExpect(status().isUnauthorized());
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor csrf() throws Exception {
+        var result=mockMvc.perform(get("/api/me")).andExpect(status().isOk()).andReturn();
+        var session=(org.springframework.mock.web.MockHttpSession)result.getRequest().getSession(false);
+        String token=com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(),"$.csrf");
+        return request->{request.setSession(session);request.addHeader("X-CSRF-Token",token);return request;};
     }
 }

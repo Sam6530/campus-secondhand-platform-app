@@ -53,8 +53,8 @@ public class VerificationController {
     }
     @Transactional @PostMapping("/admin/{kind:item|verification}/{target}")
     public Object review(HttpSession session,@PathVariable String kind,@PathVariable String target,@RequestBody Map<String,Object> input) {
-        String reviewer=admin(session),reason=text(input,"reason").strip();
-        if(reason.isBlank() || reason.length()>1000 || !(input.get("pass") instanceof Boolean pass) || !(input.get("version") instanceof Integer version))
+        String reviewer=admin(session),reason=com.campus.shared.text.ReviewReason.require(text(input,"reason"));
+        if(!(input.get("pass") instanceof Boolean pass) || !(input.get("version") instanceof Integer version))
             throw ApiException.badRequest("需提供审核版本、结论和理由");
         if(kind.equals("item")) return items.review(target,version,pass,reason);
         var rows=db.queryForList("select account_id from c_verifications where id=?",target);

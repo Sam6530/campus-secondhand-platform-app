@@ -16,21 +16,27 @@ async function run(fn){if(busy.value)return;busy.value=true;try{await fn();}catc
 async function market(){const seq=++searchSeq;const data=await client.request('/items?'+new URLSearchParams({...query,page:page.value}));if(seq===searchSeq)items.value=data;}
 async function loadPrivate(){if(!user.value)return;const seq=++loadSeq;const rows=await Promise.all(['/items/mine','/orders','/verifications','/inbox','/notifications'].map(p=>client.request(p)));if(seq!==loadSeq)return;[mine.value,orders.value,verifications.value,inbox.value,notices.value]=rows;}
 async function refresh(){await syncIdentity();await Promise.all([market(),loadPrivate()]);}
+async function refreshAfterSave(message){
+ say(message);
+ try{await Promise.all([market(),loadPrivate()]);}
+ catch(e){if(e instanceof StaleResponse)throw e;say(message+' 列表刷新失败，请刷新查看，勿重复提交。',true);}
+}
+
 async function navigate(next){if(next!=='market'&&!user.value){dialog.value={type:'auth'};return;}tab.value=next;await run(async()=>{await syncIdentity();if(user.value||next==='market')await Promise.all([market(),loadPrivate()]);});}
-async function authenticate(){await run(async()=>{if(register.value&&!validatePassword(auth.password))throw new Error('密码至少8个字符、UTF-8不超过72字节且不能全为空白。');const data=await client.request('/auth/'+(register.value?'register':'login'),{method:'POST',body:{...auth}});client.identity(data.user,data.csrf);user.value=data.user;dialog.value=null;auth.password='';await Promise.all([market(),loadPrivate()]);say('登录成功，欢迎 '+user.value.nickname);});}
+async function authenticate(){await run(async()=>{if(register.value&&!validatePassword(auth.password))throw new Error('密码至少8个字符、UTF-8不超过72字节且不能全为空白。');const data=await client.request('/auth/'+(register.value?'register':'login'),{method:'POST',body:{...auth}});client.identity(data.user,data.csrf);user.value=data.user;dialog.value=null;auth.password='';await refreshAfterSave('登录成功，欢迎 '+user.value.nickname);});}
 async function logout(){await run(async()=>{try{await client.request('/auth/logout',{method:'POST',body:{}});}finally{client.invalidate();user.value=null;}await syncIdentity();await market();say('已退出，私人草稿和页面已清理。');});}
 function newItem(){if(!user.value){dialog.value={type:'auth'};return;}Object.assign(itemForm,blankItem());tab.value='publish';}
 function editItem(i){Object.assign(itemForm,i);tab.value='publish';}
 async function upload(event,kind,target,key){const file=event.target.files[0];if(!file)return;await run(async()=>{if(!['image/png','image/jpeg'].includes(file.type)||file.size>5*1024*1024)throw new Error('请选择5MB以内的JPEG或PNG图片。');const form=new FormData();form.append('file',file);form.append('kind',kind);const data=await client.request('/assets',{method:'POST',body:form});target[key]=data.id;say('图片上传成功。');});}
-async function publish(){await run(async()=>{const {id,version,title,category,description,price,image_id}=itemForm;const body={title,category,description,price:String(price),image_id};if(id)body.version=version;await client.command(id?'/items/'+id:'/items',id?'PUT':'POST',body);Object.assign(itemForm,blankItem());tab.value='mine';await Promise.all([market(),loadPrivate()]);say('已提交当前版本审核。');});}
-async function verify(){await run(async()=>{await client.request('/verifications',{method:'POST',body:{...verifyForm}});Object.assign(verifyForm,{real_name:'',student_no:'',asset_id:''});await loadPrivate();say('认证已提交，请查看审核结果。');});}
+async function publish(){await run(async()=>{const {id,version,title,category,description,price,image_id}=itemForm;const body={title,category,description,price:String(price),image_id};if(id)body.version=version;await client.command(id?'/items/'+id:'/items',id?'PUT':'POST',body);Object.assign(itemForm,blankItem());tab.value='mine';await refreshAfterSave('已提交当前版本审核。');});}
+async function verify(){await run(async()=>{await client.request('/verifications',{method:'POST',body:{...verifyForm}});Object.assign(verifyForm,{real_name:'',student_no:'',asset_id:''});await refreshAfterSave('认证已提交，请查看审核结果。');});}
 function buy(i){if(!user.value){dialog.value={type:'auth'};return;}Object.assign(actionForm,{reason:'',declared:false});dialog.value={type:'buy',item:i};}
 function orderAction(o,action){Object.assign(actionForm,{reason:'',declared:false});dialog.value={type:'action',order:o,action};}
 function withdraw(i){Object.assign(actionForm,{reason:'',declared:false});dialog.value={type:'withdraw',item:i};}
 async function submitAction(){await run(async()=>{const current=dialog.value;if(current.type==='buy'){if(!actionForm.declared)throw new Error('请核对物品和价格并主动确认。');await client.command('/orders','POST',{item_id:current.item.id,version:current.item.version});}
  else if(current.type==='withdraw'){if(!actionForm.declared)throw new Error('请主动确认撤下。');await client.request('/items/'+current.item.id+'/withdraw',{method:'POST',body:{}});}
  else {const a=current.action;const body={};if(['reject','deliver','cancel'].includes(a)){if(!actionForm.reason.trim())throw new Error('请填写原因或交付说明。');body.reason=actionForm.reason;}if(['deliver','confirm','cancel'].includes(a)){if(!actionForm.declared)throw new Error('请核实事实后主动勾选声明。');body.declared=true;}await client.command('/orders/'+current.order.id+'/'+a,'POST',body);}
- dialog.value=null;await Promise.all([market(),loadPrivate()]);say('操作已保存，请查看当前结果。');});}
+ dialog.value=null;await refreshAfterSave('操作已保存，请查看当前结果。');});}
 async function showDetails(o){await run(async()=>{detail.value=await client.request('/orders/'+o.id+'/details');});}
 function openItemChat(i){openChat('ITEM',i.id,'',i.title,false);}
 function openOrderChat(o){openChat('ORDER',o.id,'',o.title,!isActive(o));}
@@ -41,7 +47,7 @@ async function loadMessages(){const current=chat.value;if(!current)return;const 
 }
 async function send(){await run(async()=>{const current=chat.value;if(!current||current.readonly)throw new Error('订单已结束，会话只读。');await client.request('/messages?'+new URLSearchParams({type:current.type,object:current.object,peer:current.peer}),{method:'POST',body:{content:messageText.value}});messageText.value='';await loadMessages();});}
 let poll,channel;
-async function checkSession(){if(busy.value)return;try{await syncIdentity();if(chat.value)await loadMessages();}catch(e){if(e.status===401){client.invalidate();user.value=null;}else if(!(e instanceof StaleResponse))say(e.message,true);}}
+async function checkSession(){if(busy.value)return;try{const previousEpoch=client.epoch;await syncIdentity();if(previousEpoch!==client.epoch)await Promise.all([market(),loadPrivate()]);if(chat.value)await loadMessages();}catch(e){if(e.status===401){client.invalidate();user.value=null;}else if(!(e instanceof StaleResponse))say(e.message,true);}}
 function focus(){checkSession();}
 onMounted(async()=>{await run(refresh);poll=setInterval(checkSession,5000);window.addEventListener('focus',focus);if('BroadcastChannel' in window){channel=new BroadcastChannel('campus-session');channel.onmessage=()=>checkSession();}});
 onUnmounted(()=>{clearInterval(poll);window.removeEventListener('focus',focus);channel?.close();client.invalidate();});

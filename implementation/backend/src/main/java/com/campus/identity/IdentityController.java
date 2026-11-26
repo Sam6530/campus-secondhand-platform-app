@@ -29,7 +29,7 @@ public class IdentityController {
     public Map<String,Object> me(HttpSession session) {
         Object id=session.getAttribute(SessionActorProvider.ACCOUNT_ID);
         var response=new HashMap<String,Object>();
-        response.put("user",id==null?null:db.queryForMap("select id,username,nickname,role,verified,restricted from accounts where id=?",id));
+        response.put("user",id==null?null:db.queryForMap("select public_ref as id,username,nickname,role,verified,restricted from accounts where id=?",id));
         response.put("csrf",CsrfFilter.token(session));
         return response;
     }

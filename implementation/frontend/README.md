@@ -38,3 +38,12 @@ preview使用4173端口预览构建产物；它没有开发代理，API需要部
 - `src/integration/management.js`：C管理页接入入口。
 
 提交失败保留表单；网络失败原样重试复用同次意图。浏览器刷新会清空内存意图与表单，结果不明时应先查询本人记录，不自动重放命令。当前只保留一个页面会话中的未决意图，刷新后的持久化重试体验作为已知限制交D核对。
+
+## 本轮局域网联调
+
+在项目根目录进入 `implementation/frontend`，执行 `pnpm install --frozen-lockfile`、`pnpm dev`。
+开发服务监听0.0.0.0，其他组员访问 `http://联调电脑的局域网IP:5173`。
+API_PROXY_TARGET填写前端所在电脑能够访问的后端地址；前后端同机时仍用127.0.0.1:18080。
+允许系统防火墙的专用网络访问该端口。浏览器始终通过同源/api请求，无需开放MySQL端口。
+构建后运行 `node serve.mjs` 同样支持局域网，可用FRONTEND_HOST、FRONTEND_PORT修改监听配置。
+管理员先正常注册，再由数据库维护人按 `../backend/tools/promote-admin.sql` 提升指定账户角色；重新登录后进入管理台。

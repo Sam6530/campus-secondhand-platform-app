@@ -55,13 +55,7 @@ public class ItemReviewService {
         if (pass == null) {
             throw ApiException.badRequest("审核必须明确通过或退回");
         }
-        String reason = rawReason == null ? "" : rawReason.trim();
-        if (reason.isEmpty()) {
-            throw ApiException.badRequest("审核必须说明原因");
-        }
-        if (reason.length() > 1000) {
-            throw ApiException.badRequest("审核原因不能超过 1000 字");
-        }
+        String reason = com.campus.shared.text.ReviewReason.require(rawReason);
 
         List<String> events = new ArrayList<>();
         transactionTemplate.executeWithoutResult(status -> {
