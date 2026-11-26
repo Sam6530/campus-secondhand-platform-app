@@ -17,7 +17,7 @@
 | `Dockerfile`、`compose.yml`、`.env.example`、`.dockerignore` | 容器构建与服务编排配套 | B |
 | `documents/A-V2/`、`documents/B-V2/` | 前端与后端的文件清单、来源记录及V3事项 | A/B |
 
-后端实现内容与交接见 [backend/README.md](backend/README.md)；前端说明见 [A-V2前端说明.md](../A-V2前端说明.md)，后端说明见 [B-V2后端说明.md](../B-V2后端说明.md)。
+后端运行见 [backend/README.md](backend/README.md)；前端与后端文件分别见 [前端文件清单](../documents/A-V2/前端文件清单.md)、[后端文件清单](../documents/B-V2/后端文件清单.md)。当前修复与验证见 [V2修复记录](../documents/testing/V2修复记录.md)。
 
 ## 2 实际环境登记（本机自测，2026-11-26）
 
