@@ -1,51 +1,51 @@
-# V1 后端运行配置（B：交易/数据/迁移/通知）。
-# 实际地址、账号与密码通过环境变量或本机未入库的配置文件提供，不提交真实凭据。
 server:
-  port: ${SERVER_PORT:18080}
+  # SERVER_PORT 与 PORT 均可覆盖；默认端口与 implementation/run-local.ps1 一致。
   address: ${SERVER_ADDRESS:0.0.0.0}
-
+  port: ${SERVER_PORT:${PORT:18080}}
+  # 由 A 的反向代理转发 X-Forwarded-* 时，按外部协议与主机生成响应与安全 Cookie 判断。
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: 60m
+      cookie:
+        http-only: true
+        same-site: strict
+        # 公网 HTTPS 交付设置为 true；本地 HTTP 调试保持 false。
+        secure: ${SESSION_COOKIE_SECURE:false}
 spring:
-  application:
-    name: campus-resale-backend
   datasource:
-    url: ${DB_URL:jdbc:mysql://127.0.0.1:3307/campus_resale_app?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&connectionTimeZone=UTC&serverTimezone=UTC}
-    username: ${DB_USERNAME:root}
+    # 只使用 MySQL 8.4；连接失败直接启动失败，不提供其他数据库回退。
+    # 建库、账号与验证见 implementation/backend/README.md。
+    url: "${DB_URL:jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:campus}?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&allowPublicKeyRetrieval=true&useSSL=false}"
+    # DB_USERNAME 与 DB_USER 均可覆盖，兼容实现工程既有启动脚本。
+    username: ${DB_USERNAME:${DB_USER:campus}}
     password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
+      transaction-isolation: TRANSACTION_READ_COMMITTED
       maximum-pool-size: ${DB_POOL_SIZE:10}
-      pool-name: campus-pool
       connection-timeout: 10000
-  jackson:
-    property-naming-strategy: SNAKE_CASE
-    serialization:
-      write-dates-as-timestamps: false
-    default-property-inclusion: always
   servlet:
     multipart:
-      max-file-size: ${UPLOAD_MAX_BYTES:5242880}
-      # 请求体上限需大于单文件上限，否则一张 5MB 图片会因 multipart 边界开销被拒
-      max-request-size: ${UPLOAD_MAX_REQUEST_BYTES:6291456}
-
-mybatis:
-  configuration:
-    map-underscore-to-camel-case: true
-    jdbc-type-for-null: NULL
-
-campus:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  jackson:
+    time-zone: Asia/Shanghai
+  web:
+    resources:
+      static-locations: classpath:/static/
+app:
+  # 演示种子仅用于本地检查，交付环境必须保持 false，并提供 BOOTSTRAP_ADMIN_* 初始管理员。
+  seed: ${DEMO_SEED:false}
+  upload-dir: ${UPLOAD_DIR:./data/uploads}
   migration:
-    enabled: ${MIGRATION_ENABLED:true}
-  upload:
-    dir: ${UPLOAD_DIR:./var/uploads}
-    max-bytes: ${UPLOAD_MAX_BYTES:5242880}
-    max-pixels: 16000000
-  notification:
-    batch-size: ${NOTIFICATION_BATCH_SIZE:50}
-    # 退避秒数：失败后下次可重试的间隔，V2 再补按时段/次数的完整策略
-    retry-delay-seconds: ${RETRY_INTERVAL_SECONDS:30}
-    # 达到上限后转 DEAD（保留记录、停止自动重试并记错误日志），不静默丢弃
-    max-attempts: ${NOTIFICATION_MAX_ATTEMPTS:100}
+    locations: ${MIGRATION_LOCATIONS:classpath:db/migration}
+  bootstrap-admin:
+    username: ${BOOTSTRAP_ADMIN_USERNAME:}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+    nickname: ${BOOTSTRAP_ADMIN_NICKNAME:校园管理员}
 
 logging:
   level:
     root: INFO
-    com.campus: INFO
+    cn.campus: INFO

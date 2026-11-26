@@ -11,14 +11,15 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.campus</groupId>
+    <groupId>cn.campus</groupId>
     <artifactId>campus-resale-backend</artifactId>
-    <version>0.1.0-V1</version>
+    <version>0.2.0-V2</version>
     <name>campus-resale-backend</name>
-    <description>校园二手交易平台后端（V1：交易/数据骨架、物品版本、订单快照占用、交付确认、基础通知）</description>
+    <description>校园二手交易平台后端（V2：交易、治理、身份会话、通知、收藏评价与统计）</description>
 
     <properties>
         <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <mybatis-spring-boot.version>3.0.4</mybatis-spring-boot.version>
         <mysql-connector.version>9.4.0</mysql-connector.version>
     </properties>
@@ -37,20 +38,26 @@
             <artifactId>mybatis-spring-boot-starter</artifactId>
             <version>${mybatis-spring-boot.version}</version>
         </dependency>
+        <!-- 账号口令使用 BCrypt，供认证与初始化管理员使用。 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <version>${mysql-connector.version}</version>
             <scope>runtime</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- 仅自动化测试使用的内存数据库，scope=test，不进入交付 JAR；应用没有 H2 运行方式。 -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
