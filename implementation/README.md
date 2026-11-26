@@ -26,12 +26,13 @@
 | 操作系统 | Windows（win32），PowerShell 7 |
 | JDK | Zulu OpenJDK 21.0.3 LTS；后端源码`<release>17</release>` |
 | 构建工具 | Apache Maven 3.9.9（本机位于`%USERPROFILE%\tools\apache-maven-3.9.9`，不入库） |
+| 前端运行环境 | Node.js 18及以上版本，推荐使用Node.js 20或22 LTS |
 | 后端依赖 | Spring Boot 3.5.7、Spring Framework 6.2.12、mybatis-spring-boot-starter 3.0.4（MyBatis 3.5.17）、mysql-connector-j 9.4.0、HikariCP（Boot管理版本） |
-| 数据库 | MySQL 8.4.13；本轮空库启动使用仓库外临时独立实例`127.0.0.1:3308`，未使用本机3306实例与既有库 |
+| 数据库 | MySQL 8.0及以上版本；已在MySQL 8.0.29、8.0.39和8.4.13环境完成验证 |
 | 数据库与账号 | 运行库、测试库由环境变量提供；真实凭据不写入仓库 |
 | 后端端口 | 18080（`SERVER_PORT`可改） |
 | 上传目录 | `implementation/backend/data/uploads`（`UPLOAD_DIR`可改，不入库） |
-| 结构升级 | V1 baseline、V2 indexes、V3 idempotency evidence audit、V4 lost update guards、V5 notification outbox；`schema_migrations`记录版本、说明、SHA-256与应用时间 |
+| 结构升级 | V1 baseline、V2 indexes、V3 idempotency evidence audit、V4 lost update guards、V5 notification outbox、V6 review reason capacity；`schema_migrations`记录版本、说明、SHA-256与应用时间 |
 | 前端开发端口 | 5173（`FRONTEND_PORT`可改） |
 
 ## 3 构建与运行
@@ -82,11 +83,11 @@ powershell -ExecutionPolicy Bypass -File implementation\build.ps1
 
 ### 4.3 实测结果（2026-11-26）
 
-- `mvn -B test`：50个测试，0失败、0错误、0跳过，BUILD SUCCESS，13.7秒；异常堆栈为断言用例的预期输出。
+- `mvn -B test`：59个测试，0失败、0错误、0跳过，BUILD SUCCESS。
 - `mvn -B -DskipTests package`：BUILD SUCCESS，`campus-resale-backend.jar`为26,702,667字节。
-- 临时独立MySQL 8.4.13空库（`campus_v2_check`）启动：V1—V5升级全部应用；`GET /api/health`返回200且`schema`为V5；`GET /api/items`返回200与空列表；`GET /api/me`返回200并下发CSRF令牌；初始管理员登录返回200；重启后升级全部跳过、管理员不重复创建。
+- 独立MySQL空库启动：V1—V6升级全部应用；`GET /api/health`返回200且`schema`为V6；`GET /api/items`返回200；`GET /api/me`返回200并下发CSRF令牌；初始管理员登录返回200；重启后升级全部跳过、管理员不重复创建。
 - 临时实例验证后已停止并删除数据目录；未连接本机3306实例或既有数据库。
-- 未执行两个MySQL集成用例、容器镜像构建、前端联调与阶段验收。
+- 未执行两个`IT_DB_URL`集成用例与容器镜像构建。
 
 2026-11-25的V1基线自测记录（43个测试、真实MySQL自测库）保留在Git历史中，不再作为V2的测试结论。
 

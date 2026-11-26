@@ -102,11 +102,11 @@ V3的Issue由全组共同检查，处理结果汇总在[问题修复与复验记
 
 ### 6.2 本地运行
 
-1. 安装JDK 17及以上版本、Node.js、Maven和MySQL，或使用Docker Desktop。
+1. 安装JDK 17及以上版本、Node.js 18及以上版本、Maven和MySQL 8.0及以上版本，或使用Docker Desktop。
 2. 根据[工程实现与启动说明](implementation/README.md)准备数据库连接和初始管理员配置。
 3. 在`implementation/frontend/`中安装依赖并构建前端。
 4. 使用`implementation/build.ps1`构建后端。
 5. 使用`implementation/start.cmd`启动项目，使用`implementation/stop.cmd`停止项目。
-6. 浏览器访问`http://127.0.0.1:18080`。
+6. 浏览器访问前端地址`http://127.0.0.1:5173`；后端健康检查地址为`http://127.0.0.1:18080/api/health`。端口可通过`.env.local`调整。
 
 测试代码位置、运行命令和阶段结果见[系统测试记录](documents/testing/系统测试记录.md)，完整报告见[校园二手交易与物品流转平台系统测试报告](documents/testing/校园二手交易与物品流转平台系统测试报告.docx)。
