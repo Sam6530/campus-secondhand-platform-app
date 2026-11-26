@@ -9,3 +9,10 @@ implementation/.env
 .idea/
 .vscode/
 __pycache__/
+
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+test-results/
