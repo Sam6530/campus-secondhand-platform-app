@@ -1080,7 +1080,7 @@ class BackendIssueRegressionTest {
 
         // 本人与管理端各自按权限读取说明
         var own = om.readTree(mvc.perform(get("/api/items/mine").session(session("seller"))).andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString());
+                .andReturn().getResponse().getContentAsString()).get("items");
         var ownRow = StreamSupport.stream(own.spliterator(), false).filter(r -> iid.equals(r.get("id").asText()))
                 .findFirst().orElse(null);
         assertNotNull(ownRow, "物主列表应包含该物品");
@@ -1496,7 +1496,8 @@ class BackendIssueRegressionTest {
         // 物主与管理台的完整记录仍含审核说明（权限各自保留）
         String reason = reasonOf(iid, db);
         assertNotNull(reason);
-        var mine = service.mine(seller()).stream().filter(r -> iid.equals(s(r, "id"))).findFirst().orElseThrow();
+        var mine = ((List<Map<String, Object>>) service.mine(seller(), 1, MINE_MAX_SIZE).get("items")).stream()
+                .filter(r -> iid.equals(s(r, "id"))).findFirst().orElseThrow();
         assertEquals(reason, s(mine, "reason"));
         var dash = service.dashboard(admin());
         var dashRow = ((List<Map<String, Object>>) dash.get("items")).stream().filter(r -> iid.equals(s(r, "id")))

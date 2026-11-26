@@ -13,9 +13,9 @@
 
     <groupId>cn.campus</groupId>
     <artifactId>campus-resale-backend</artifactId>
-    <version>0.2.0-V2</version>
+    <version>0.3.0-V3</version>
     <name>campus-resale-backend</name>
-    <description>校园二手交易平台后端（V2：交易、治理、身份会话、通知、收藏评价与统计）</description>
+    <description>校园二手交易平台后端（V3：交易、治理、身份会话、通知、收藏评价、统计与系统复验）</description>
 
     <properties>
         <java.version>17</java.version>

@@ -31,6 +31,9 @@ public class MarketService {
     final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
     static final Set<String> ACTIVE = Set.of("待卖方确认", "待交付", "待买方确认");
     static final Set<String> CATEGORIES = Set.of("教材书籍", "数码配件", "宿舍生活", "运动户外", "其他");
+    /** “我的发布”分页：默认每页 20 条，单页上限 50 条，避免一次读出全部历史记录。 */
+    static final int MINE_DEFAULT_SIZE = 20;
+    static final int MINE_MAX_SIZE = 50;
 
     MarketService(Store db, ObjectMapper json, NotificationDelivery notices) {
         this.db = db;
@@ -260,9 +263,20 @@ public class MarketService {
                 .map(this::maskPublicItem).toList();
     }
 
-    public List<Map<String, Object>> mine(String uid) {
+    /**
+     * 我的发布（含历史状态）：按创建时间倒序分页。
+     * 页码小于 1 按第 1 页处理，超出总页数收敛到最后有效页；每页默认 20 条、上限 50 条。
+     */
+    public Map<String, Object> mine(String uid, int page, int size) {
         account(uid);
-        return db.list("select * from items where seller_id=#{p.u} order by created_at desc", p("u", uid));
+        int pageSize = Math.min(MINE_MAX_SIZE, Math.max(1, size <= 0 ? MINE_DEFAULT_SIZE : size));
+        long total = Long.parseLong(s(db.one("select count(*) as c from items where seller_id=#{p.u}", p("u", uid)), "c"));
+        int totalPages = (int) Math.max(1, (total + pageSize - 1) / pageSize);
+        int current = Math.min(totalPages, Math.max(1, page));
+        var items = db.list(
+                "select * from items where seller_id=#{p.u} order by created_at desc, id desc limit #{p.limit} offset #{p.offset}",
+                p("u", uid, "limit", pageSize, "offset", (current - 1) * pageSize));
+        return p("items", items, "page", current, "size", pageSize, "total", total, "totalPages", totalPages);
     }
 
     public List<Map<String, Object>> orders(String uid) {
@@ -565,6 +579,9 @@ public class MarketService {
     public void review(String uid, String oid, Map<String, Object> b) {
         var o = lockOrder(uid, oid, false);
         require(s(o, "stage").equals("已完成"), "仅完成订单可评价。");
+        // 数据库唯一约束 (order_id, author_id) 是最终防线；业务层先返回明确的冲突响应。
+        if (db.one("select id from reviews where order_id=#{p.o} and author_id=#{p.u}", p("o", oid, "u", uid)) != null)
+            throw new ApiError(409, "本单已评价，不能重复评价。");
         int score;
         try {
             score = Integer.parseInt(s(b, "score"));

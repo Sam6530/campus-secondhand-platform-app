@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: 校园循环 · 后端接口契约
-  version: 2.0.1-2026-11-26
-  x-base-commit: f64115dc950cc29238073195e3a51a5767686803
+  version: 3.0.0-2026-11-26
+  x-base-commit: 2d7023556b2a2a3bb56e25ae26e149a2b0366628
   x-document-status: implementation-aligned
   description: |
     校园二手交易与物品流转平台后端接口。所有业务接口位于 /api。
@@ -12,7 +12,7 @@ info:
     错误统一为 {"message": "..."}：400 输入或业务条件不满足、401 未登录、403 越权或 CSRF 失败、
     404 不存在、409 冲突或并发锁冲突、500 未预期异常、503 数据库不可用。
     生成时间为UTC ISO-8601（Z结尾）；统计参数可带时区偏移。金额响应为JSON数字，人民币元，零汇总可为0。
-    当前V2接口形态见同目录《接口与关键设计.md》；已发现的实现问题单独记录，不作为允许违反业务规则的依据。
+    当前V3接口形态见同目录《接口与关键设计.md》；接口行为与实现及回归用例保持一致。
     账号相关id沿用accounts.id，不使用独立public_ref；服务端仍须按会话与对象归属授权。
     文本去除首尾空白后按Java String.length计数，即UTF-16代码单元；x-max-utf16-code-units记录实际限制。
 servers:
@@ -205,16 +205,43 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/items/mine:
     get:
-      summary: 本人发布的物品（含历史状态）
+      summary: 本人发布的物品（分页，含历史状态）
+      description: 按创建时间倒序。page 小于 1 按第 1 页处理，超出总页数时收敛到最后有效页并回显；size 默认 20、上限 50，均为 1 起算。
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 50
       responses:
         '200':
-          description: 物品列表
+          description: 分页结果；page 为实际返回的页码
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Item'
+                type: object
+                required: [items, page, size, total, totalPages]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Item'
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  total:
+                    type: integer
+                  totalPages:
+                    type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/items/{id}:

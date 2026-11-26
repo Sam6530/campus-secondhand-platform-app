@@ -1,6 +1,6 @@
 # 实现工程说明（implementation）
 
-登记日期：2026-11-26（V2）。记录当前工程、依赖版本、启动方式与本轮自测范围。
+登记日期：2026-11-26（V3）。记录当前工程、依赖版本、启动方式与本轮自测范围。
 本文不代替documents/中的设计、准入和验收，也不表示任务已被人工批准或阶段已通过；
 任务与准入见 [阶段计划](../documents/stages/阶段计划.md)、[任务索引](../documents/stages/任务索引.md)、
 [阶段准入记录](../documents/stages/阶段准入记录.md)。
@@ -9,15 +9,15 @@
 
 | 目录/文件 | 真实状态 | 负责 |
 |---|---|---|
-| `backend/` | V2后端：cn.campus入口、交易与治理数据、V1—V5迁移、7个测试 | B |
+| `backend/` | V3后端：cn.campus入口、交易与治理数据、V1—V6迁移及回归测试 | B |
 | `backend/src/main/java/cn/campus/`中C的六个文件 | AdminBootstrap、AdminController、AuthController、CommunityController、SeedData、SessionSupport保持原样 | C |
-| `frontend/` | V2前端：Vue 3、Vite与JavaScript页面 | A |
+| `frontend/` | V3前端：Vue 3、Vite、JavaScript页面及浏览器侧回归 | A |
 | `build.ps1` | 构建后端并校验`target/campus-resale-backend.jar`；找不到Maven时明确报错 | B |
 | `run-local.ps1`、`start.cmd`、`stop.cmd` | 读取仓库根目录`.env.local`，启动后端jar与前端`serve.mjs`；需已构建前端`dist` | A/B |
 | `Dockerfile`、`compose.yml`、`.env.example`、`.dockerignore` | 容器构建与服务编排配套 | B |
 | `documents/A-V2/`、`documents/B-V2/` | 前端与后端的文件清单、来源记录及V3事项 | A/B |
 
-后端运行见 [backend/README.md](backend/README.md)；前端与后端文件分别见 [前端文件清单](../documents/A-V2/前端文件清单.md)、[后端文件清单](../documents/B-V2/后端文件清单.md)。当前修复与验证见 [V2修复记录](../documents/testing/V2修复记录.md)。
+后端运行见 [backend/README.md](backend/README.md)；前端与后端文件分别见 [前端文件清单](../documents/A-V2/前端文件清单.md)、[后端文件清单](../documents/B-V2/后端文件清单.md)。当前修复与验证见 [V3问题修复与复验记录](../documents/testing/V3问题修复与复验记录.md)。
 
 ## 2 实际环境登记（本机自测，2026-11-26）
 

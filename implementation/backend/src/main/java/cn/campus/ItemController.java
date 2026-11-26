@@ -26,8 +26,9 @@ public class ItemController {
     }
 
     @GetMapping("/items/mine")
-    Object mine(HttpServletRequest r) {
-        return service.mine(session.uid(r));
+    Object mine(@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size,
+            HttpServletRequest r) {
+        return service.mine(session.uid(r), page, size);
     }
 
     @PostMapping("/items")

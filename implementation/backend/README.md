@@ -1,6 +1,6 @@
-# 后端说明（V2）
+# 后端说明（V3）
 
-最后更新：2026-11-26。工作分支：v2-b；目标分支：v2。技术栈：Spring Boot 3.5.7、Java 17、MyBatis 3.0.4、MySQL 8.4，测试使用 test-scope 的 H2 内存库。前端统一调用 `/api`。
+最后更新：2026-11-26。工作分支及目标分支：v3。技术栈：Spring Boot 3.5.7、Java 17、MyBatis 3.0.4、MySQL 8.4，测试使用 test-scope 的 H2 内存库。前端统一调用 `/api`。
 
 本文件说明实现范围、运行配置和自测入口。功能与文件的对应关系见 [后端文件清单](../../documents/B-V2/后端文件清单.md)，来源与逐文件校验见 [documents/B-V2/来源记录.md](../../documents/B-V2/来源记录.md)，尚未验证的集成事项见 [documents/B-V2/V3差异记录.md](../../documents/B-V2/V3差异记录.md)。
 

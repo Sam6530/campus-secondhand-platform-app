@@ -257,8 +257,12 @@ class MarketIntegrationTest {
         act(buyer(), o, "confirm");
         assertThrows(ApiError.class, () -> service.message(buyer(), "ORDER", s(o, "id"), "", p("content", "终态发送")));
         service.review(buyer(), s(o, "id"), p("score", 5, "content", "物品符合描述"));
+        // 业务层先给出明确拒绝（#17），数据库唯一约束 (order_id, author_id) 仍是最终防线。
+        assertThrows(ApiError.class, () -> service.review(buyer(), s(o, "id"), p("score", 5, "content", "重复评价")));
         assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
-                () -> service.review(buyer(), s(o, "id"), p("score", 5, "content", "重复评价")));
+                () -> db.exec("insert into reviews(id,order_id,author_id,target_id,score,content,created_at) "
+                        + "values(#{p.id},#{p.o},#{p.u},#{p.t},5,'绕过业务层',#{p.at})",
+                        p("id", id(), "o", s(o, "id"), "u", buyer(), "t", seller(), "at", now())));
     }
 
     @Test
