@@ -18,3 +18,8 @@ dist/
 .env.*.local
 test-results/
 implementation/.run/
+
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
+Desktop.ini
