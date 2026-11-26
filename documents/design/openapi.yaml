@@ -1,9 +1,7 @@
 openapi: 3.0.3
 info:
-  title: 校园循环 · 后端接口契约
-  version: 3.0.0-2026-11-26
-  x-base-commit: 2d7023556b2a2a3bb56e25ae26e149a2b0366628
-  x-document-status: implementation-aligned
+  title: 校园二手交易与物品流转平台 · 后端接口契约
+  version: 3.0.0-2026-11-12
   description: |
     校园二手交易与物品流转平台后端接口。所有业务接口位于 /api。
     身份基于服务端 Session；POST、PUT、DELETE等写请求须带 X-CSRF-Token（由 GET /api/me、注册或登录响应下发）。
@@ -12,7 +10,7 @@ info:
     错误统一为 {"message": "..."}：400 输入或业务条件不满足、401 未登录、403 越权或 CSRF 失败、
     404 不存在、409 冲突或并发锁冲突、500 未预期异常、503 数据库不可用。
     生成时间为UTC ISO-8601（Z结尾）；统计参数可带时区偏移。金额响应为JSON数字，人民币元，零汇总可为0。
-    当前V3接口形态见同目录《接口与关键设计.md》；接口行为与实现及回归用例保持一致。
+    接口设计说明见同目录《接口与关键设计.md》，业务规则、字段约束和授权要求共同构成接口契约。
     账号相关id沿用accounts.id，不使用独立public_ref；服务端仍须按会话与对象归属授权。
     文本去除首尾空白后按Java String.length计数，即UTF-16代码单元；x-max-utf16-code-units记录实际限制。
 servers:
@@ -206,24 +204,25 @@ paths:
   /api/items/mine:
     get:
       summary: 本人发布的物品（分页，含历史状态）
-      description: 按创建时间倒序。page 小于 1 按第 1 页处理，超出总页数时收敛到最后有效页并回显；size 默认 20、上限 50，均为 1 起算。
       parameters:
         - name: page
           in: query
+          description: 页码，从1开始；超过末页时返回最后一页。
           schema:
             type: integer
-            default: 1
             minimum: 1
+            default: 1
         - name: size
           in: query
+          description: 每页数量，范围1—50。
           schema:
             type: integer
-            default: 20
             minimum: 1
             maximum: 50
+            default: 20
       responses:
         '200':
-          description: 分页结果；page 为实际返回的页码
+          description: 本人物品分页结果
           content:
             application/json:
               schema:
@@ -236,12 +235,17 @@ paths:
                       $ref: '#/components/schemas/Item'
                   page:
                     type: integer
+                    minimum: 1
                   size:
                     type: integer
+                    minimum: 1
+                    maximum: 50
                   total:
                     type: integer
+                    minimum: 0
                   totalPages:
                     type: integer
+                    minimum: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/items/{id}:
@@ -437,7 +441,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/PublicReview'
         '401':
-          description: 当前实现对不存在的账户返回401；存在性错误语义以实际代码为准
+          description: 请求未通过账户访问校验
           content:
             application/json:
               schema:
@@ -881,7 +885,7 @@ paths:
                       type: string
                     peer_id:
                       type: string
-                      description: 当前V2账号id（accounts.id）；标识不替代对象授权
+                      description: 账号业务标识（accounts.id）；标识不替代对象授权
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/notifications:
@@ -1200,7 +1204,7 @@ components:
     Time:
       type: string
       format: date-time
-      example: '2026-10-29T07:30:00.123Z'
+      example: '2026-11-12T07:30:00.123Z'
       description: UTC ISO-8601，以 Z 结尾
     Money:
       type: number
@@ -1263,7 +1267,7 @@ components:
           type: string
         seller_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         seller_name:
           type: string
           description: 卖方公开昵称，按公开规则脱敏
@@ -1295,7 +1299,7 @@ components:
           type: string
         seller_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         seller_name:
           type: string
           description: 仅公开列表与管理台返回
@@ -1358,10 +1362,10 @@ components:
           type: string
         buyer_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         seller_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         title:
           type: string
         description:
@@ -1445,10 +1449,10 @@ components:
           type: string
         author_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         target_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         score:
           type: integer
           minimum: 1
@@ -1469,7 +1473,7 @@ components:
           type: string
         author_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         reason:
           type: string
         evidence:
@@ -1498,7 +1502,7 @@ components:
           type: string
         author_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         content:
           type: string
         created_at:
@@ -1510,7 +1514,7 @@ components:
           type: string
         author_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         object_type:
           type: string
           enum: [ITEM, ORDER, ACCOUNT]
@@ -1558,7 +1562,7 @@ components:
           type: string
         user_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         content:
           type: string
         created_at:
@@ -1602,7 +1606,7 @@ components:
           type: string
         user_id:
           type: string
-          description: 当前V2账号id（accounts.id）；标识不替代对象授权
+          description: 账号业务标识（accounts.id）；标识不替代对象授权
         student_no:
           type: string
         real_name:
