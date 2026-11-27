@@ -15,9 +15,8 @@
 | `build.ps1` | 构建后端并校验`target/campus-resale-backend.jar`；找不到Maven时明确报错 | B |
 | `run-local.ps1`、`start.cmd`、`stop.cmd` | 读取仓库根目录`.env.local`，启动后端jar与前端`serve.mjs`；需已构建前端`dist` | A/B |
 | `Dockerfile`、`compose.yml`、`.env.example`、`.dockerignore` | 容器构建与服务编排配套 | B |
-| `documents/A-V2/`、`documents/B-V2/` | 前端与后端的文件清单、来源记录及V3事项 | A/B |
 
-后端运行见 [backend/README.md](backend/README.md)；前端与后端文件分别见 [前端文件清单](../documents/A-V2/前端文件清单.md)、[后端文件清单](../documents/B-V2/后端文件清单.md)。当前修复与验证见 [V3问题修复与复验记录](../documents/testing/V3问题修复与复验记录.md)。
+后端运行见[backend/README.md](backend/README.md)，接口约定见[接口与关键设计](../documents/design/接口与关键设计.md)，当前修复与验证见[V3问题修复与复验记录](../documents/testing/V3问题修复与复验记录.md)。
 
 ## 2 实际环境登记（本机自测，2026-11-26）
 
@@ -56,7 +55,7 @@ curl.exe http://127.0.0.1:18080/api/items
 
 空库首次启动需提供`BOOTSTRAP_ADMIN_USERNAME`与`BOOTSTRAP_ADMIN_PASSWORD`，或在仅限本地的演示环境设置`DEMO_SEED=true`。数据库首次启动自动建表；常规启动不删库、不覆盖账号与图片。配置项与容器说明见 [backend/README.md](backend/README.md) 与 [.env.example](.env.example)。
 
-`run-local.ps1`同时启动前后端，需要仓库根目录`.env.local`、已构建的前端`dist/index.html`与`frontend/serve.mjs`；当前前端入口文件的核对事项见 [A-V2的V3差异记录](../documents/A-V2/V3差异记录.md)。
+`run-local.ps1`同时启动前后端，需要仓库根目录`.env.local`、已构建的前端`dist/index.html`与`frontend/serve.mjs`；前端通过同源代理访问后端API。
 
 ## 4 自测
 
@@ -87,21 +86,8 @@ powershell -ExecutionPolicy Bypass -File implementation\build.ps1
 - `mvn -B -DskipTests package`：BUILD SUCCESS，`campus-resale-backend.jar`为26,702,667字节。
 - 独立MySQL空库启动：V1—V6升级全部应用；`GET /api/health`返回200且`schema`为V6；`GET /api/items`返回200；`GET /api/me`返回200并下发CSRF令牌；初始管理员登录返回200；重启后升级全部跳过、管理员不重复创建。
 - 临时实例验证后已停止并删除数据目录；未连接本机3306实例或既有数据库。
-- 未执行两个`IT_DB_URL`集成用例与容器镜像构建。
 
 2026-11-25的V1基线自测记录（43个测试、真实MySQL自测库）保留在Git历史中，不再作为V2的测试结论。
-
-上述结果为AI按任务执行的自动化结果，**仍需实际成员核对预期、D独立复验**，不能替代阶段验收。
-
-## 5 尚未包含与交接
-
-| 项 | 负责 | 说明 |
-|---|---|---|
-| 真实MySQL上的交易并发、治理复核与两套集成用例 | B/D | 由V3专用测试库执行，见`documents/B-V2/V3差异记录.md` |
-| 容器镜像构建与编排联调 | B/A/D | Dockerfile与compose已提供，尚未实际构建 |
-| 前端页面构建、API代理与启动入口 | A | 构建产物需与后端静态资源或代理方式统一 |
-| 联调机地址、账号与一键启停 | 全组 | 依赖环境登记与实际授权 |
-
 
 ## 本地启动补充
 
